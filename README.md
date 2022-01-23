@@ -30,6 +30,7 @@ To run the scraper make sure you first install scrapy on your machine by doing p
 **NOTE**
 
 This is a lot of data so it is likely to take a while
+
 ---
 
 
