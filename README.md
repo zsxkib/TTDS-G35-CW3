@@ -26,6 +26,7 @@ Björn </p>
 </ol>
 <h3> How to run the scraper</h3>
 To run the scraper make sure you first install scrapy on your machine by doing pip install scrapy. Then go to the right directory and run ```scrapy runspider spider.py``` to run the spider, add -o file_name.json to save the output to a json file.
+
 ---
 **NOTE**
 
