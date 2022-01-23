@@ -25,10 +25,10 @@ Björn </p>
   <li>test.txt: File containing all the urls to look at (not sure I've covered everything)</li>
 </ol>
 <h3> How to run the scraper</h3>
-<p>To run the scraper make sure you first install scrapy on your machine by doing</p> 
-```pip install scrapy``` 
-<p> Then go to the right directory and run</p> 
-```scrapy runspider spider.py``` to run the spider, add -o file_name.json to save the output to a json file.
+<p>To run the scraper make sure you first install scrapy on your machine by doing
+`pip install scrapy` 
+Then go to the right directory and run
+```scrapy runspider spider.py``` to run the spider, add -o file_name.json to save the output to a json file.</p> 
 
 ---
 **NOTE**
