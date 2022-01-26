@@ -9,23 +9,30 @@ import math as m
 from time import time
 from nltk.stem.porter import PorterStemmer
 
+
+
 # General Functions --------------------------------
 
 codepath = Path.cwd()
 
 def saveIndex(path, method='freq'):
     print(f'\t\tSaving new index file.')
+    tags, index = indexing(path, method)
+    if not os.path.isfile(codepath / "data" / f"tags.{path[:-4]}.json"):
+        with open(codepath / "data" / f"tags.{path[:-4]}.json", 'w') as t:
+            t.write(json.dumps(tags))
     with open(codepath / "data" / f"{method}.{path[:-4]}.json", 'w') as f:    
         #f.write(str(indexing(path, method)))
-        f.write(json.dumps(indexing(path, method)))
+        f.write(json.dumps(index))
 
 def retrieveIndex(path, method='freq'):
     print(f'\t\tRetrieving index file.')
     with open(codepath / "data" / f"{method}.{path[:-4]}.json", 'r') as f:
         #return eval(f.read())
         index = json.loads(f.read())
-        docs = index.pop("0")
-        return docs, index
+    with open(codepath / "data" / f"tags.{path[:-4]}.json", 'r') as f:
+        tags = json.loads(f.read())
+    return tags, index
 
 def dictPrinter(dictionary):
     for key in dictionary:
@@ -84,7 +91,7 @@ def getIndex(path, method=''):
     return retrieveIndex(path, method)
 
 def indexing(path, method):
-    terms = preprocessing(path)
+    tags, terms = preprocessing(path)
     index = {}
 
     for line in terms:
@@ -110,8 +117,7 @@ def indexing(path, method):
                         index[term][line] = 0
                     index[term][line] += 1
     
-    index[0] = list(terms.keys())
-    return index
+    return tags, index
 
 
 # Querying -----------------------------------------
@@ -174,18 +180,18 @@ def getLocations(i, cmds, posIndex, docs):
         return set(proximitySearch(posIndex, cmds[i+1], absol=False).keys()).symmetric_difference(set(docs))
 
 def booleanSearch(path, query):
-    docs, posIndex = getIndex(path, 'pos')
+    tags, posIndex = getIndex(path, 'pos')
 
     print(f'\n\tRunning Boolean Search with query : {query.strip()}.')
 
     cmds = [x[1:-1] if x[0] == '"' else x for x in re.split("( |\\\".*?\\\"|'.*?')", query) if x != '' and x != ' ']
 
-    output = getLocations(0, cmds, posIndex, docs)
+    output = getLocations(0, cmds, posIndex, tags.keys())
     for i in range(len(cmds)):
         if cmds[i] == 'AND':
-            output &= getLocations(i+1, cmds, posIndex, docs) # Updating Intesect
+            output &= getLocations(i+1, cmds, posIndex, tags.keys()) # Updating Intesect
         if cmds[i] == 'OR':    
-            output |= getLocations(i+1, cmds, posIndex, docs) # Updating Union
+            output |= getLocations(i+1, cmds, posIndex, tags.keys()) # Updating Union
     return output
 
 
@@ -194,9 +200,9 @@ def booleanSearch(path, query):
 # --------------------------------------------------
 
 def rankedIR(path, query):
-    docs, index = getIndex(path, 'pos')
+    tags, index = getIndex(path, 'pos')
     print(f'\tRunning Ranked IR with query : {query}.\n')
-    N = len(docs)
+    N = len(tags.keys())
 
     tf = lambda term, line : len(index[term][line]) 
     df = lambda term : len(index[term])
@@ -261,6 +267,7 @@ def resultsOutput(method):
 print("Running...")
 start = time()
 
-getIndex("test.xml", 'pos')
+a,b,c = getIndex("test.xml", 'pos')
+print(f"\n\n{a}\n\n\n{b}\n\n\n{c}")
 
 print(f"\nExecuted in {time()-start} secs")
