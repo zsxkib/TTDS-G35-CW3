@@ -1,14 +1,15 @@
 import { IconButton, TextField} from '@material-ui/core';
 import { SearchOutlined } from '@material-ui/icons';
 import React, { useState } from "react";
-import { spawn } from 'child_process';
 
 const SearchBar = (props) => {
     const [content, setContent] = useState('');
-    const handleSubmit = (event) => {
+    const { spawn } = require('child_process');
+    const handleSubmit = (e) => {
         var dataToSend;
-        const python = spawn('python3', ['../python/_search.py'], content);
-        
+        const python = spawn('python3', ['../python/_search.py']);
+        alert(python)
+
         python.stdout.on('data', function(data) {
             dataToSend = data.toString();
         });
@@ -21,7 +22,7 @@ const SearchBar = (props) => {
             console.log(`child process exited with code ${code}, ${dataToSend}`);
         })
         
-        event.preventdefault()
+        e.preventdefault()
     };
 
   return (
