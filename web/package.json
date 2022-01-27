@@ -38,7 +38,7 @@
       "last 1 safari version"
     ]
   },
-  "browser":{
+  "browser": {
     "child_process": false
-    }
+  }
 }
