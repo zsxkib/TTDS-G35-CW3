@@ -14,7 +14,7 @@ class SimpleSearch:
 
     def __init__(self, path, preindex=True, rerun=False):
         self.path = path
-        self.datapath = Path.cwd() / 'data_collection' / path
+        self.datapath = Path.cwd() / "source" / path
         self.indexpath = lambda label : Path.cwd() / "data" / f"{label}.{path[:-4]}.json"
         self.tags, self.xmldata = self.readXML()
         if preindex: self.fullIndex(rerun)
@@ -48,7 +48,7 @@ class SimpleSearch:
     def preprocessing(self, data):
         if type(data) == str: data = {0:data}
 
-        with open(Path.cwd() / 'source' / "stopwords.txt") as f:
+        with open(Path.cwd() / "source" / "stopwords.txt") as f:
             stopwords = f.read().splitlines() 
 
         tokens = {}
