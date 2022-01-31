@@ -1,7 +1,7 @@
 
 ## ==================================================
 ##
-##   Simple Search Programs for Base Class 
+##   Simple Search Programs for Parent Class 
 ##
 ## ==================================================
 
@@ -21,7 +21,7 @@ class SimpleSearch:
 
     def __init__(self, path, preindex=True, rerun=False):
         self.path = path
-        self.datapath = Path.cwd() / "source" / path
+        self.datapath = Path.cwd() / "python" / path
         self.indexpath = lambda label : Path.cwd() / "data" / f"{label}.{path[:-4]}.json"
         self.tags, self.xmldata = self.readXML()
         if preindex: self.fullIndex(rerun)
