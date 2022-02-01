@@ -20,6 +20,7 @@ I will be on leave until 10 January. Happy holidays and a happy new year!
 Best,
 
 Björn
+
 ## Documentation
 ### Scraping
 
@@ -89,8 +90,6 @@ There are two files AdvancedSearch.py and SimpleSearch.py. AdvancedSearch is a c
 
 #### Advanced Search Variables
 
----
-
 - datapath
 - quiet
 - corpora
@@ -106,8 +105,6 @@ There are two files AdvancedSearch.py and SimpleSearch.py. AdvancedSearch is a c
 - model
 
 #### Advanced Search Commands
-
----
 
 - filterCorpora(corpora)
     - corpora=’ALL’ : allows you to filter the active corpora being searched
