@@ -67,7 +67,7 @@ class AdvancedSearch(SimpleSearch):
         return out
 
 
-    def LDA(path):
+    def LDA(self):
         fileLoc = codepath / "data" / f"{path[:-4]}"
         data = preprocessing(path)
         docs = [doc for corpus in data.values() for doc in corpus.values()]
@@ -222,8 +222,9 @@ class AdvancedSearch(SimpleSearch):
                 df = df.append(row, ignore_index=True)
         
         df.to_csv(codepath / "classification.csv", index=False)
+        
 
-# Executions ---------------------------------------
+# Test Executions ----------------------------------
 
 print("Running...")
 start = time()
