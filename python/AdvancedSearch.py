@@ -6,27 +6,27 @@
 
 # Imports ------------------------------------------
 
-from SimpleSearch import SimpleSearch
-from math import log10
-from xml.etree.ElementTree import ProcessingInstruction
-from gensim.corpora.dictionary import Dictionary
-from gensim.models.ldamodel import LdaModel
-from numpy.lib import unique
-from scipy.sparse import dok_matrix
-from sklearn.svm import SVC
-import pandas as pd
-import numpy as np
-from pathlib import Path
 import re
 import os
-from nltk.stem.porter import PorterStemmer
+import numpy as np
+import pandas as pd
 from time import time
+from math import log10
+from pathlib import Path
+from sklearn.svm import SVC
+from numpy.lib import unique
+from scipy.sparse import dok_matrix
+from SimpleSearch import SimpleSearch
+from nltk.stem.porter import PorterStemmer
+from gensim.models.ldamodel import LdaModel
+from gensim.corpora.dictionary import Dictionary
+from xml.etree.ElementTree import ProcessingInstruction
 
 
 class AdvancedSearch(SimpleSearch):
 
-    def __init__(self, path, preindex=True, rerun=False):
-        super().__init__(path, preindex, rerun)
+    def __init__(self, path, preindex=True, rerun=False, quiet=True):
+        super().__init__(path, preindex, rerun, quiet)
 
 
 # --------------------------------------------------
@@ -35,14 +35,17 @@ class AdvancedSearch(SimpleSearch):
 
 # Text Analysis --------------------------------
 
-    def text_analysis(self, method): 
-        ns = self.tags.keys()
-        index = self.indexes['pos']
-        out = {c:{} for c in index if c != '0'}
+    def analysis(self, method): 
+        print(f"\n\tRunning Text Analysis on {self.corpora} using {method} method.")
+        if len(self.corpora) != 3: print("\tText Analysis currently only works when using 3 corpora."); return None
+
+        Ngids = {corpus:len(self.terms[corpus]) for corpus in self.corpora}
+        index = self.indexes['bool']
+        out = {corpus:{} for corpus in self.corpora}
         for corpus in out:
             incorpus = list(index.keys()); incorpus.remove(str(corpus))
-            num  = ns[corpus]
-            inum = ns[incorpus[0]] + ns[incorpus[1]]
+            num  = Ngids[corpus]
+            inum = Ngids[incorpus[0]] + Ngids[incorpus[1]]
             N = np.array([[None, None],[None, None]])
             for term in index[corpus]:
                 N[1,1] =  len(index[corpus][term])
@@ -67,170 +70,115 @@ class AdvancedSearch(SimpleSearch):
         return out
 
 
-    def LDA(self):
-        fileLoc = codepath / "data" / f"{path[:-4]}"
-        data = preprocessing(path)
-        docs = [doc for corpus in data.values() for doc in corpus.values()]
+    def lda(self):
+        print(f"\n\tRunning the LDA Model on {self.corpora}.")
+        fileLoc = Path.cwd() / "data" / f"LDA_{self.path[:-4]}"
+        # docs = [doc for corpus in self.terms.values() for doc in corpus.values()]
+        docs = [doc for corpus, entries in self.terms.items() for doc in entries.values() if corpus in self.corpora]
         dct = Dictionary(docs)
         corpora = [dct.doc2bow(doc) for doc in docs]
 
-        if not os.path.isfile(str(fileLoc)):
+        if not os.path.isfile(str(fileLoc)) or self.rerun:
             LdaModel(corpora, num_topics=20, id2word=dct).save(str(fileLoc))
         lda = LdaModel.load(str(fileLoc))
 
         ats = {}    # Average Topic Score
         phase = 0
         highest_topics = {}
-        for corpus in data:
+        for corpus in self.terms:
             ats[corpus] = {}
-            for doc in range(len(data[corpus])):
+            for doc in range(len(self.terms[corpus])):
                 for id in lda.get_document_topics(corpora[doc+phase]):
                     if id[0] not in ats[corpus]:
                         ats[corpus][id[0]] = 0
                     ats[corpus][id[0]] += id[1]  
                         
-            l = len(data[corpus])
+            l = len(self.terms[corpus])
             phase += l
             ats[corpus] = {t:v/l for t, v in ats[corpus].items()}
             max_ats = max(ats[corpus], key=ats[corpus].get)
             highest_topics[corpus] = (max_ats, round(ats[corpus][max_ats], 3), lda.print_topic(max_ats))
         return highest_topics
 
-    # print(f'\nPart 2 : Text Analysis\n')
-    # print("  Token Analysis:")
-    # path = "train_and_dev.tsv"
-    # index = getIndex(path)
-    # MI = text_analysis(index, 'MI')
-    # X2 = text_analysis(index, 'X2')
-    # for c in MI.keys():
-    #     print(f"\n\t___________{c}___________")
-    #     print(f"\t  MI\t\t  X2")
-    #     for i in range(10):
-    #         if len(MI[c][i][0]) > 7:
-    #             print(f"\t{MI[c][i][0]}\t{X2[c][i][0]}")
-    #         else:
-    #             print(f"\t{MI[c][i][0]}\t\t{X2[c][i][0]}")
-
-    # print("\n  Topic Analysis:")
-    # highest_topics = LDA(path)
-    # for c in highest_topics:
-    #     print(f'\t{c} : Topic {highest_topics[c][0]} with score {highest_topics[c][1]}\n\t\t{highest_topics[c][2]}\n')
 
     # --------------------------------------------------
     #   Text Classification
     # --------------------------------------------------
 
-    def text_classifier(path, test_path, frac=0.9, stem=False, idf=False, C=1000):
+    def classifier(self, tag, stem=False, idf=False, C=1000):
+        print(f"\n\tRunning the Tag Classifier on {self.corpora} using {tag} tag.")
 
-        # Preprocessing ---
-
-        data_train = []
-        data_dev = []
-        data_test = []
-        with open(codepath / path) as f:
-            listData = f.read().splitlines()
-            np.random.shuffle(listData)
-            for i in range(len(listData)):
-                if i < frac*len(listData):
-                    data_train.append(listData[i].split('\t'))
-                else:
-                    data_dev.append(listData[i].split('\t'))
-
-        with open(codepath / test_path) as f:
-            listData = f.read().splitlines()
-            for i in range(len(listData)):
-                data_test.append(listData[i].split('\t'))
-
-
-        tokenize = lambda data : [[y[0], [x.strip() for x in re.split('[^a-zA-Z0-9]', y[1]) if x != '' and x.lower() not in stopwords]] for y in data]
-        termerize  = lambda tokens : [[y[0], [PorterStemmer().stem(x) for x in y[1]]] for y in tokens]
-
-        tokens_train, tokens_dev, tokens_test = tokenize(data_train), tokenize(data_dev), tokenize(data_test)
         if stem:
-            tokens_train, tokens_dev, tokens_test = termerize(data_train), termerize(data_dev), termerize(data_test)
+            tokerms = self.terms
+        else:
+            tokerms = self.tokens
 
         # Extract Features -----------------------
 
-        corpora = []
-        unique_tokens = []
-        for info in tokens_train:
-            if info[0] not in corpora:
-                corpora.append(info[0])
-            for token in info[1]:
-                if token not in unique_tokens:
-                    unique_tokens.append(token)
+        self.uniqueTokerms = []
+        self.uniqueGIDs = []
+        self.uniqueTags = []
 
-        def getXy(tokens):
-            num = len(tokens)
-            y = np.empty(num)
-            X = dok_matrix((num, len(unique_tokens)))
-            if idf:
-                df = [sum([1 for line in tokens if token in line[1]]) for token in unique_tokens]
-            for i in range(num):
-                y[i] = corpora.index(tokens[i][0])
-                for t in tokens[i][1]:
-                    if t in unique_tokens:
-                        X[i, unique_tokens.index(t)] += 1
-                if idf:
-                    for t in tokens[i][1]:
-                        if t in unique_tokens:
-                            j = unique_tokens.index(t)
-                            if type(X[i, j]) == float:
-                                X[i, j] = (1+ np.log10(X[i, j]))*log10(num/df[j])
-            return X, y
+        for corpus in self.corpora:
+            for gids, text in tokerms[corpus].items():
+                for gid in gids:
+                    if gid not in self.uniqueGIDs:
+                        self.uniqueGIDs.append(gid)
+                for tokerm in text:
+                    if tokerm not in self.uniqueTokerms:
+                        self.uniqueTokerms.append(tokerm)
 
-        X_train, y_train = getXy(tokens_train)
-        X_dev,  y_dev  = getXy(tokens_dev)
-        X_test, y_test  = getXy(tokens_test)
+        for gids in self.tags.values():
+            for genre in gids[tag]:
+                if genre not in self.self.uniqueTags:
+                    self.uniqueTags.append(genre)
+
+        X, y = self.getXy(tokerms, tag, idf)
 
         # SVC Fit --------------------
 
-        model = SVC(C=C)
-        model.fit(X_train, y_train)
-
-        def model_stats(X, y):
-            y_pred = model.predict(X)
-            corpora_stats = {}
-            for c in range(len(corpora)):
-                P  = sum(np.logical_and(y == c, y_pred == c)) / sum(y_pred == c)
-                R  = sum(np.logical_and(y == c, y_pred == c)) / sum(y == c)
-                F1 = 2*P*R/(P+R)
-                corpora_stats[corpora[c]] = {'P':P, 'R':R, 'F1':F1}
-            return corpora_stats
-
-        return {'train':model_stats(X_train, y_train), 'dev':model_stats(X_dev, y_dev), 'test':model_stats(X_test, y_test)}
+        self.model = SVC(C=C)
+        self.model.fit(X, y)
 
 
-    def write_text_classifier():
-        path, test = "train_and_dev.tsv", "test.tsv"
-        out = {'baseline':text_classifier(path, test), 'improved':text_classifier(path, test, idf=True, C=6)}
-        _val  = lambda c, m : np.round(out[sys][split][c][m], 3)
-        _mean = lambda m : np.round(np.mean([stats[m] for stats in out[sys][split].values()]), 3)
+    def createXy(self, tokerms, tag, idf=False):
+        y = np.empty(len(self.uniqueGIDs))
+        X = dok_matrix((len(self.uniqueGIDs), len(self.uniqueTokerms)))
+        for i, gid in enumerate(self.uniqueGIDs):
+            y[i] = self.self.uniqueTags.index(self.tags[gid][tag])  # Zero as more than one genre!
+            for corpus in self.corpora:
+                for tokerm in tokerms[corpus][i][1]:
+                    if tokerm in self.uniqueTokerms:
+                        X[i, self.uniqueTokerms.index(tokerm)] += 1
 
-        def _mean(m):
-            temp = []
-            for stats in out[sys][split].values():
-                temp.append(stats[m])
-            return np.round(np.mean(temp), 3)
+        if idf:           
+            df = [sum([1 for corpus in tokerms.values() for doc in corpus.values() if token in doc]) for token in self.uniqueTokerms]
+            for corpus in self.corpora:
+                for tokerm in tokerms[corpus][i][1]:
+                    for tokerm in tokerms[i][1]:
+                        if tokerm in self.uniqueTokerms:
+                            j = self.uniqueTokerms.index(tokerm)
+                            if type(X[i, j]) == float:
+                                X[i, j] = (1+ np.log10(X[i, j]))*log10(len(self.uniqueGIDs)/df[j])
+        return X, y
 
 
-        df = pd.DataFrame(columns=['system', 'split', 'p-quran', 'r-quran', 'f-quran', 'p-ot', 'r-ot', 'f-ot', 'p-nt', 'r-nt', 'f-nt', 'p-macro', 'r-macro', 'f-macro'])
-        for sys in out:
-            for split in out[sys]:
-                inp = [sys, split, _val('Quran', 'P'), _val('Quran', 'R'), _val('Quran', 'F1'), _val('OT', 'P'), _val('OT', 'R'), _val('OT', 'F1'), _val('NT', 'P'), _val('NT', 'R'), _val('NT','F1'), _mean('P'), _mean('R'), _mean('F1')]
-                row = pd.DataFrame([inp], columns=['system', 'split', 'p-quran', 'r-quran', 'f-quran', 'p-ot', 'r-ot', 'f-ot', 'p-nt', 'r-nt', 'f-nt', 'p-macro', 'r-macro', 'f-macro'])
-                df = df.append(row, ignore_index=True)
-        
-        df.to_csv(codepath / "classification.csv", index=False)
-        
+    def classifierStats(self, X, y):
+        pred = self.model.predict(X)
+        stats = {}
+        for c in range(len(self.corpora)):
+            P  = sum(np.logical_and(y == c, pred == c)) / sum(pred == c)
+            R  = sum(np.logical_and(y == c, pred == c)) / sum(y == c)
+            F1 = 2*P*R/(P+R)
+            stats[self.corpora[c]] = {'P':P, 'R':R, 'F1':F1}
+        return stats
+
+
 
 # Test Executions ----------------------------------
 
 print("Running...")
 start = time()
 test = AdvancedSearch("test.xml")
-
-a = test.indexes
-print(a)
-
-print(f"\nExecuted in {time()-start} secs")
+data = AdvancedSearch("data.xml")
+print(f"\nExecuted in {round(time()-start, 1)} secs")

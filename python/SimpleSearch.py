@@ -8,30 +8,41 @@
 # Imports ------------------------------------------
 
 import os
-from pathlib import Path
-import json
-import xml.etree.ElementTree as ET
 import re
+import json
 import math as m
 from time import time
-from nltk.stem.porter import PorterStemmer
+from tqdm import tqdm
+from pathlib import Path
 from sklearn import preprocessing
+import xml.etree.ElementTree as ET
+from nltk.stem.porter import PorterStemmer
+
+_allcorpora = ['description']
 
 class SimpleSearch:
 
-    def __init__(self, path, preindex=True, rerun=False):
+    def __init__(self, path, preindex=True, rerun=False, quiet=True):
         self.path = path
+        self.rerun = rerun
+        self.quiet = quiet
         self.datapath = Path.cwd() / "python" / path
         self.indexpath = lambda label : Path.cwd() / "data" / f"{label}.{path[:-4]}.json"
         self.tags, self.xmldata = self.readXML()
-        if preindex: self.fullIndex(rerun)
+        if preindex: self.fullIndex()
+        self.filterCorpora('ALL')
 
     
     def filterCorpora(self, corpora):
         if corpora == 'ALL':
-            self.corpora = list(self).indexes['pos'].keys())
+            self.corpora = list(self.indexes['pos'].keys())
         else:
             self.corpora = corpora
+        print(f"\nCorpora filter set to {self.corpora}")
+
+    def getErrors(self):
+        for i, m in self.xmlerrors.items():
+            print(f"XML Error : ID {i} Missing Tags -> {m}")
 
 
 # --------------------------------------------------
@@ -39,49 +50,64 @@ class SimpleSearch:
 # --------------------------------------------------
 
     def readXML(self):
+        print(f"\nReading XML from {self.datapath}...")
         tags = {}
-        data = {}
+        data = {corpus:{} for corpus in _allcorpora}
 
         tree = ET.parse(self.datapath)
         root = tree.getroot()
-        for doc in root:                                                                                                        # Use dictionary comprehension
+        self.xmlerrors = {}
+        for doc in root:
             try:
-                tags[doc.find('game_id').text] = {"name":doc.find('game_name').text}
-                data[doc.find('game_id').text] = {corpus:f"{doc.find(corpus).text}" for corpus in ['description'] if doc.find(corpus) != None}
+                tags[doc.find('game_id').text] = {"name":doc.find('game_name').text, "genre":doc.find('genres').text.split(' | ')[0]}
+                for corpus in data.keys():
+                    if doc.find(corpus) != None : data[corpus][doc.find('game_id').text] = f"{doc.find(corpus).text}"       
             except:
                 missing = []
-                for tag in ['description', 'game_name', 'game_id']:
+                for tag in _allcorpora + ['genres', 'game_name', 'game_id']:
                     if doc.find(tag) == None:
+                        missing.append(tag)
+                    elif doc.find(tag).text == None:
                         missing.append(tag)
                     else:
                         identifier = doc.find(tag).text
-                print(f"XML Error : ID {identifier} Missing Tags -> {missing}")
+                self.xmlerrors[identifier] = missing
+                if not self.quiet : print(f"XML Error : ID {identifier} Missing Tags -> {missing}")
         return tags, data
 
 
     def preprocessing(self, data):
+        print(f"\t- Preprocessing {type(data)}...")
         if type(data) == str: data = {0:{0:data}}
 
-        with open(Path.cwd() / "source" / "stopwords.txt") as f:
+        with open(Path.cwd() / "python" / "stopwords.txt") as f:
             stopwords = f.read().splitlines() 
 
-        tokens = {gid:{corpus:[word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in stopwords] for corpus, text in corpora.items()} for gid, corpora in data.items()}
-        terms  = {gid:{corpus:[PorterStemmer().stem(word) for word in text] for corpus, text in corpora.items()} for gid, corpora in tokens.items()}
+        tokens = {corpus:{gid:[word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in stopwords] for gid, text in tqdm(entries.items())} for corpus, entries in data.items()}    
+        terms  = {corpus:{gid:[PorterStemmer().stem(word) for word in text] for gid, text in tqdm(entries.items())} for corpus, entries in tokens.items()} 
 
         if type(data) == str: return terms[0][0]
-        return terms
+        return tokens, terms
 
 
 # --------------------------------------------------
 #   Indexing
 # --------------------------------------------------
 
-    def fullIndex(self, rerun):
-        self.terms = None
+    def fullIndex(self):
+        print("Getting all indexes:")
         self.indexes = {'pos':None, 'seq':None, 'bool':None, 'freq':None}
+        if not os.path.isfile(self.indexpath('preprocess')) or self.rerun:
+            self.tokens, self.terms = self.preprocessing(self.xmldata)
+            with open(self.indexpath('preprocess'), 'w') as f:    
+                f.write(json.dumps([self.tokens, self.terms]))
+        else:
+            with open(self.indexpath('preprocess'), 'r') as f:
+                self.tokens, self.terms = json.loads(f.read())
+
         for method in self.indexes.keys():
-            if not os.path.isfile(self.indexpath(method)) or rerun:
-                self.terms = self.preprocessing(self.xmldata) if self.terms == None else self.terms
+            print(f"\t- Getting Index : {method}")
+            if not os.path.isfile(self.indexpath(method)) or self.rerun:
                 self.indexes[method] = self.indexing(method)
                 with open(self.indexpath(method), 'w') as f:    
                     f.write(json.dumps(self.indexes[method]))
@@ -91,14 +117,14 @@ class SimpleSearch:
 
 
     def indexing(self, method):
+        print("\t\t Indexing working...")
         index = {}
-        
-        for gid in self.terms:
-            for corpus in self.term[gid]:
-                index[corpus] = {}
+        for corpus in self.terms:
+            index[corpus] = {}
+            for gid in self.terms[corpus]:
                 if method == 'pos':
-                    for i in range(len(self.terms[gid][corpus])):
-                        term = self.terms[gid][corpus][i]
+                    for i in range(len(self.terms[corpus][gid])):
+                        term = self.terms[corpus][gid][i]
                         if term not in index[corpus]:
                             index[corpus][term] = {}
                         if gid in index[corpus][term]:
@@ -106,9 +132,9 @@ class SimpleSearch:
                         else:
                             index[corpus][term][gid] = [i+1]
                 elif method == 'seq':
-                    index[corpus][gid] = [f"{self.terms[gid][corpus][i-1]}_{self.terms[gid][corpus][i]}" for i in range(len(self.terms[gid][corpus])) if i > 0]
+                    index[corpus][gid] = [f"{self.terms[corpus][gid][i-1]}_{self.terms[corpus][gid][i]}" for i in range(len(self.terms[corpus][gid])) if i > 0]
                 else:
-                    for term in self.terms[gid][corpus]:
+                    for term in self.terms[corpus][gid]:
                         if term not in index[corpus]:
                             index[corpus][term] = {}
                         if method == 'bool':
@@ -190,7 +216,7 @@ class SimpleSearch:
             return self.proxRec(queryTerms, d, absol, out)
 
     def proximitySearch(self, query, distance=1, absol=True):
-        print(f'\n\tRunning Proxmimity Search with query : {query} and allowed distance : {distance}.')
+        print(f'\n\tRunning Proxmimity Search on {self.corpora} with query : {query} and allowed distance : {distance}.')
 
         queryTerms = query
         if type(query) == str: queryTerms = preprocessing(query)
@@ -200,14 +226,14 @@ class SimpleSearch:
 
     # Boolean Search Functions ---------------------
 
-    def getLocations(self, i, cmds):
+    def getLocations(self, i, cmds, corpus):
         if cmds[i] != 'NOT':
             return set(self.proximitySearch(self.indexes[corpus]['pos'], cmds[i], absol=False).keys())
         else:
             return set(self.proximitySearch(self.indexes[corpus]['pos'], cmds[i+1], absol=False).keys()).symmetric_difference(set(self.tags.keys()))
 
     def booleanSearch(self, query):
-        print(f'\n\tRunning Boolean Search with query : {query.strip()}.')
+        print(f'\n\tRunning Boolean Search on {self.corpora} with query : {query.strip()}.')
 
         cmds = [x[1:-1] if x[0] == '"' else x for x in re.split("( |\\\".*?\\\"|'.*?')", query) if x != '' and x != ' ']
 
@@ -226,8 +252,6 @@ class SimpleSearch:
 
 # print("Running...")
 # start = time()
-# test = SimpleSearch("data.xml", rerun=True)
-
-# a = test.indexes
-
-# print(f"\nExecuted in {time()-start} secs")
+# test = SimpleSearch("test.xml")
+# data = SimpleSearch("data.xml")
+# print(f"\nExecuted in {round(time()-start, 1)} secs")
