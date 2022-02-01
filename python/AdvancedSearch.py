@@ -6,21 +6,16 @@
 
 # Imports ------------------------------------------
 
-import re
 import os
 import numpy as np
-import pandas as pd
 from time import time
 from math import log10
 from pathlib import Path
 from sklearn.svm import SVC
-from numpy.lib import unique
 from scipy.sparse import dok_matrix
 from SimpleSearch import SimpleSearch
-from nltk.stem.porter import PorterStemmer
 from gensim.models.ldamodel import LdaModel
 from gensim.corpora.dictionary import Dictionary
-from xml.etree.ElementTree import ProcessingInstruction
 
 
 class AdvancedSearch(SimpleSearch):
@@ -177,8 +172,8 @@ class AdvancedSearch(SimpleSearch):
 
 # Test Executions ----------------------------------
 
-print("Running...")
-start = time()
-test = AdvancedSearch("test.xml")
-data = AdvancedSearch("data.xml")
-print(f"\nExecuted in {round(time()-start, 1)} secs")
+# print("Running...")
+# start = time()
+# test = AdvancedSearch("test.xml")
+# data = AdvancedSearch("data.xml")
+# print(f"\nExecuted in {round(time()-start, 1)} secs")

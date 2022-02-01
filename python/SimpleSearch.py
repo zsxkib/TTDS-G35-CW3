@@ -33,7 +33,7 @@ class SimpleSearch:
         self.filterCorpora('ALL')
 
     
-    def filterCorpora(self, corpora):
+    def filterCorpora(self, corpora=='ALL'):
         if corpora == 'ALL':
             self.corpora = list(self.indexes['pos'].keys())
         else:
