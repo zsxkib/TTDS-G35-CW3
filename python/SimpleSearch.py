@@ -7,6 +7,7 @@
 
 # Imports ------------------------------------------
 
+from __future__ import print_function
 import os
 import re
 import json
@@ -17,25 +18,29 @@ from pathlib import Path
 from sklearn import preprocessing
 import xml.etree.ElementTree as ET
 from nltk.stem.porter import PorterStemmer
+from concurrent.futures import ThreadPoolExecutor
 
-_allcorpora = ['description']
+_allcorpora = ['description', 'developer']
 
 class SimpleSearch:
 
-    def __init__(self, path, preindex=True, rerun=False, quiet=True):
+    def __init__(self, path, preindex=True, rerun=False, quiet=True, threaded='single'):
         self.path = path
         self.rerun = rerun
         self.quiet = quiet
+        self.threaded = threaded                          # Multithreaded is only turned on if threads is raised higher than 1
+        self.filterCorpora('ALL')
         self.datapath = Path.cwd() / "python" / path
         self.indexpath = lambda label : Path.cwd() / "data" / f"{label}.{path[:-4]}.json"
+        start = time()
         self.tags, self.xmldata = self.readXML()
+        print(f"Read XML : {time()-start}")
         if preindex: self.fullIndex()
-        self.filterCorpora('ALL')
 
     
-    def filterCorpora(self, corpora=='ALL'):
+    def filterCorpora(self, corpora='ALL'):
         if corpora == 'ALL':
-            self.corpora = list(self.indexes['pos'].keys())
+            self.corpora = _allcorpora
         else:
             self.corpora = corpora
         print(f"\nCorpora filter set to {self.corpora}")
@@ -52,7 +57,7 @@ class SimpleSearch:
     def readXML(self):
         print(f"\nReading XML from {self.datapath}...")
         tags = {}
-        data = {corpus:{} for corpus in _allcorpora}
+        data = {corpus:{} for corpus in self.corpora}
 
         tree = ET.parse(self.datapath)
         root = tree.getroot()
@@ -61,7 +66,7 @@ class SimpleSearch:
             try:
                 tags[doc.find('game_id').text] = {"name":doc.find('game_name').text, "genre":doc.find('genres').text.split(' | ')[0]}
                 for corpus in data.keys():
-                    if doc.find(corpus) != None : data[corpus][doc.find('game_id').text] = f"{doc.find(corpus).text}"       
+                    data[corpus][doc.find('game_id').text] = f"{doc.find(corpus).text}"       
             except:
                 missing = []
                 for tag in _allcorpora + ['genres', 'game_name', 'game_id']:
@@ -95,16 +100,28 @@ class SimpleSearch:
 # --------------------------------------------------
 
     def fullIndex(self):
-        print("Getting all indexes:")
+        print("Getting all indexes:") if self.threaded == 'single' else print("Getting all indexes using {self.threaded} as threads:")
         self.indexes = {'pos':None, 'seq':None, 'bool':None, 'freq':None}
+        start = time()
         if not os.path.isfile(self.indexpath('preprocess')) or self.rerun:
-            self.tokens, self.terms = self.preprocessing(self.xmldata)
+            if self.threaded == 'single':
+                self.tokens, self.terms = self.preprocessing(self.xmldata)
+            else:
+                self.tokens, self.terms = {}, {}
+                num_threads = len(self.corpora) #if self.threaded == 'corpora' 
+                with ThreadPoolExecutor(max_workers=num_threads) as executor:
+                    for subtokens, subterms in executor.map(self.preprocessing, [{corpus:entries} for corpus, entries in self.xmldata.items()]):
+                        self.tokens |= subtokens
+                        self.terms  |= subterms
+                    print(self.tokens)
             with open(self.indexpath('preprocess'), 'w') as f:    
                 f.write(json.dumps([self.tokens, self.terms]))
         else:
             with open(self.indexpath('preprocess'), 'r') as f:
                 self.tokens, self.terms = json.loads(f.read())
+        print(f"Preprocess : {time()-start}")
 
+        start = time()
         for method in self.indexes.keys():
             print(f"\t- Getting Index : {method}")
             if not os.path.isfile(self.indexpath(method)) or self.rerun:
@@ -114,35 +131,48 @@ class SimpleSearch:
             else:
                 with open(self.indexpath(method), 'r') as f:
                     self.indexes[method] = json.loads(f.read())
+        print(f"{time()-start}")
 
 
     def indexing(self, method):
         print("\t\t Indexing working...")
         index = {}
-        for corpus in self.terms:
-            index[corpus] = {}
-            for gid in self.terms[corpus]:
-                if method == 'pos':
-                    for i in range(len(self.terms[corpus][gid])):
-                        term = self.terms[corpus][gid][i]
-                        if term not in index[corpus]:
-                            index[corpus][term] = {}
-                        if gid in index[corpus][term]:
-                            index[corpus][term][gid].append(i+1)
-                        else:
-                            index[corpus][term][gid] = [i+1]
-                elif method == 'seq':
-                    index[corpus][gid] = [f"{self.terms[corpus][gid][i-1]}_{self.terms[corpus][gid][i]}" for i in range(len(self.terms[corpus][gid])) if i > 0]
-                else:
-                    for term in self.terms[corpus][gid]:
-                        if term not in index[corpus]:
-                            index[corpus][term] = {}
-                        if method == 'bool':
-                            index[corpus][term][gid] = 1
-                        else:
-                            if gid not in index[corpus][term]:
-                                index[corpus][term][gid] = 0
-                            index[corpus][term][gid] += 1
+        if self.threaded == 'single':
+            for corpus in self.terms:
+                index |= self.perCorporaIndexing(method, corpus)
+        else:
+            num_threads = len(self.corpora) #if self.threaded == 'corpora' 
+            with ThreadPoolExecutor(max_workers=num_threads) as executor:
+                for subIndex in executor.map(self.preprocessing, [{corpus:entries} for corpus, entries in self.xmldata.items()]):
+                    index |= subIndex[0]
+        return index
+
+
+    def perCorporaIndexing(self, method, corpus):
+        index = {}
+        index[corpus] = {}
+        for gid in self.terms[corpus]:
+            if method == 'pos':
+                for i in range(len(self.terms[corpus][gid])):
+                    term = self.terms[corpus][gid][i]
+                    if term not in index[corpus]:
+                        index[corpus][term] = {}
+                    if gid in index[corpus][term]:
+                        index[corpus][term][gid].append(i+1)
+                    else:
+                        index[corpus][term][gid] = [i+1]
+            elif method == 'seq':
+                index[corpus][gid] = [f"{self.terms[corpus][gid][i-1]}_{self.terms[corpus][gid][i]}" for i in range(len(self.terms[corpus][gid])) if i > 0]
+            else:
+                for term in self.terms[corpus][gid]:
+                    if term not in index[corpus]:
+                        index[corpus][term] = {}
+                    if method == 'bool':
+                        index[corpus][term][gid] = 1
+                    else:
+                        if gid not in index[corpus][term]:
+                            index[corpus][term][gid] = 0
+                        index[corpus][term][gid] += 1
         return index
 
 
