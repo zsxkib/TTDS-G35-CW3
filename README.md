@@ -92,6 +92,7 @@ There are two files AdvancedSearch.py and SimpleSearch.py. AdvancedSearch is a c
 
 - datapath
 - quiet
+- threaded
 - corpora
 - tags
 - xmldata
