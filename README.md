@@ -47,6 +47,38 @@ If you wish you can add `-o file_name.json` to save the output to a json file wi
     1. Open it as a text folder and copy the contents and send it to me
     2. Alternatively put the file in the keys folder on the github, renaming it with your name
 
+### Accessing Local Server
+
+---
+
+1. Open SSH client of choice:
+    1. For vscode look in the bottom left for a blue button an click connect to host and enter the `user@address`...
+    2. MobaXTerm right click on side bar and click new session and then enter address details...
+    3. For terminal simply type `ssh user@address`
+2. For the user and address, the user is just your first name in lowercase and the address is `176.252.92.24`. If this doesn't work this IP may have changed. 
+    - Logging into the server **requires** key authentication, so if you haven’t sent me you ssh key you will not be able to access the server.
+3. However you will need a password for root access, I have texted you a password however if you want to change it, you can use `passwd`.
+4. All the files including the GitHub are stored in the Public folder in your Home directory.
+
+<aside>
+⚠️ If you get To continue type in the phrase ‘Yes, do as I say!’, stop. This is an important system warning you are about to delete something integral!
+
+</aside>
+
+## Using Git from Terminal
+
+---
+
+- Getting repo : `git clone <url>`
+- Update repo : `git fetch` then `git pull`
+- Push update : `git commit -a -m <description>` then `git push origin <branch>`
+    - You will need to give yourself a name and email: `git config --global user.name <name>` and `git config --global user.email <email>`
+
+<aside>
+⚠️ https://docs.gitlab.com/ee/gitlab-basics/start-using-git.html
+
+</aside>
+
 ### Accessing the GCP Disk
 
 ---
