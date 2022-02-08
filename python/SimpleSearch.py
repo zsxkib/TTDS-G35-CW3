@@ -20,7 +20,7 @@ import xml.etree.ElementTree as ET
 from nltk.stem.porter import PorterStemmer
 from concurrent.futures import ThreadPoolExecutor
 
-_allcorpora = ['description', 'developer']
+_allcorpora = ['text']
 
 class SimpleSearch:
 
@@ -30,7 +30,7 @@ class SimpleSearch:
         self.quiet = quiet
         self.threaded = threaded                          # Multithreaded is only turned on if threads is raised higher than 1
         self.filterCorpora('ALL')
-        self.datapath = Path.cwd() / "python" / path
+        self.datapath = Path.cwd() / "python" / "data" / path
         self.indexpath = lambda label : Path.cwd() / "data" / f"{label}.{path[:-4]}.json"
         start = time()
         self.tags, self.xmldata = self.readXML()
@@ -64,12 +64,12 @@ class SimpleSearch:
         self.xmlerrors = {}
         for doc in root:
             try:
-                tags[doc.find('game_id').text] = {"name":doc.find('game_name').text, "genre":doc.find('genres').text.split(' | ')[0]}
+                tags[doc.find('id').text] = {"title":doc.find('title').text}
                 for corpus in data.keys():
-                    data[corpus][doc.find('game_id').text] = f"{doc.find(corpus).text}"       
+                    data[corpus][doc.find('id').text] = f"{doc.find('revision').find(corpus).text}"  
             except:
                 missing = []
-                for tag in _allcorpora + ['genres', 'game_name', 'game_id']:
+                for tag in _allcorpora + ['title', 'id']:
                     if doc.find(tag) == None:
                         missing.append(tag)
                     elif doc.find(tag).text == None:
@@ -78,6 +78,7 @@ class SimpleSearch:
                         identifier = doc.find(tag).text
                 self.xmlerrors[identifier] = missing
                 if not self.quiet : print(f"XML Error : ID {identifier} Missing Tags -> {missing}")
+        print(data['text'].keys())
         return tags, data
 
 
@@ -282,6 +283,7 @@ class SimpleSearch:
 
 # print("Running...")
 # start = time()
-# test = SimpleSearch("test.xml")
-# data = SimpleSearch("data.xml")
+# # test = SimpleSearch("test.xml", rerun=True)
+# test = SimpleSearch("wikidata_short.xml", rerun=True)
+# # data = SimpleSearch("data.xml")
 # print(f"\nExecuted in {round(time()-start, 1)} secs")
