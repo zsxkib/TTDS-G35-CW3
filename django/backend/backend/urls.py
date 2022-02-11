@@ -20,10 +20,10 @@ from search import views
 
 
 router = routers.DefaultRouter()
-router.register(r'search', views.SearchView, 'search')
-
+# router.register(r'searches', views.SearchView, 'search')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include(router.urls)),
+    re_path('search/',views.search)
 ]
