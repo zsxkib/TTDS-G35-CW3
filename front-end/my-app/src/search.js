@@ -1,22 +1,22 @@
 import { IconButton, TextField} from '@material-ui/core';
 import { SearchOutlined } from '@material-ui/icons';
 import React, { useState } from "react";
-import { withRouter } from 'react-router';
+// import { useNavigate } from 'react-router-dom';
 
-const SearchBar = (props) => {
-    const [content, setContent] = useState('');
-    const handleSubmit = (e) => {
-        const requestOptions = {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              search: content,
-            })
-          };
-        fetch("http://127.0.0.1:8000/search/", requestOptions)
-        e.preventdefault()
-    };
-
+function SearchBar () {
+  //let navigate = useNavigate()
+  const [content, setContent] = useState('');
+  const handleSubmit = (e) => {
+      const requestOptions = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            search: content,
+          })
+        };
+      fetch("http://127.0.0.1:8000/search/", requestOptions)
+  };
+  
   return (
         <form className='form' onSubmit={handleSubmit}>
             <TextField
