@@ -25,7 +25,7 @@ _allcorpora = ['text']
 class SimpleSearch:
 
     def __init__(self, path, preindex=True, rerun=False, quiet=True, threaded='single'):
-        self.path = path
+        self.path = path                                  # path must not inlclude "./" e.g. Do not use path="./wikidata_short.xml", USE path="wikidata_short.xml"
         self.rerun = rerun
         self.quiet = quiet
         self.threaded = threaded                          # Multithreaded is only turned on if threads is raised higher than 1
@@ -208,11 +208,12 @@ class SimpleSearch:
         df = lambda corpus, term : len(index[corpus][term])
         weight = lambda corpus, term, gid : (1 + m.log10(tf(corpus, term, gid))) * m.log10(N / df(corpus, term))
 
-        queryTerms = self.preprocessing(query)
+        queryTerms = self.preprocessing(query)[1][0][0]
         docScores = {}
 
         for corpus in self.corpora:
             for term in queryTerms:
+                # print(corpus, set(index[corpus].keys()))
                 for gid in index[corpus][term]:
                     if gid not in docScores:
                         docScores[gid] = {}
@@ -250,7 +251,7 @@ class SimpleSearch:
         print(f'\n\tRunning Proxmimity Search on {self.corpora} with query : {query} and allowed distance : {distance}.')
 
         queryTerms = query
-        if type(query) == str: queryTerms = preprocessing(query)
+        if type(query) == str: queryTerms = preprocessing(query)[1][0][0] # TODO: FIX THIS
         
         queryTerms.reverse()
         return self.proxRec(queryTerms, distance, absol)
@@ -285,5 +286,6 @@ class SimpleSearch:
 # start = time()
 # # test = SimpleSearch("test.xml", rerun=True)
 # test = SimpleSearch("wikidata_short.xml", rerun=True)
+# print(test.rankedIR("aggression and violence"))
 # # data = SimpleSearch("data.xml")
 # print(f"\nExecuted in {round(time()-start, 1)} secs")
