@@ -4,4 +4,6 @@ from django.db import models
 
 class Search(models.Model):
     search = models.TextField()
-
+    
+    def __str__(self):
+        return '{}'.format(self.search)

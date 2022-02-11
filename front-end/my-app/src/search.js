@@ -4,13 +4,6 @@ import React, { useState } from "react";
 import { withRouter } from 'react-router';
 
 const SearchBar = (props) => {
-    function getCategorySlug(name) {
-        return name
-          .split(' ')
-          .map(encodeURIComponent)
-          .join('+');
-    }
-
     const [content, setContent] = useState('');
     const handleSubmit = (e) => {
         const requestOptions = {
