@@ -1,7 +1,6 @@
 from pyexpat import model
 from re import search
 from urllib import request
-from django.http import HttpResponse
 from .serializers import SearchSerializer
 from rest_framework import viewsets
 from .models import Search
@@ -16,7 +15,7 @@ class SearchView(viewsets.ModelViewSet):
 def search(request):
     if request.method == 'POST':
         search_json = request.body.decode('utf-8')
-        # THIS IS THE INPUT!!!
+        # THIS IS THE INPUT (i.e. search_term)!!!
         search_term = json.loads(search_json)['search']
         # for testing, can delete
         print(search_term)
