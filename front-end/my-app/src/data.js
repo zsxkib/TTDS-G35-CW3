@@ -1,4 +1,4 @@
-export const stockData = [
+export const dummyData = [
     {
       title: "Apple",
       link: "https://en.wikipedia.org/wiki/Apple",
@@ -21,7 +21,7 @@ export const stockData = [
     },
     {
       title: "Mango",
-      linke: "https://en.wikipedia.org/wiki/Mango",
+      link: "https://en.wikipedia.org/wiki/Mango",
       description: "A mango is an edible stone fruit produced by the tropical tree Mangifera indica which is believed to have originated from the region between northwestern Myanmar, Bangladesh, and northeastern India.[1] M. indica has been cultivated in South and Southeast Asia since ancient times resulting in two distinct types of modern mango cultivars: the 'Indian type' and t",
     },
     {

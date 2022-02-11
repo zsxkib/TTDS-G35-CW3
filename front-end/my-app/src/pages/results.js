@@ -1,10 +1,19 @@
-import { stockData } from "../data";
+import { dummyData } from "../data";
 import React from "react";
 
-class List extends React.Component {
-    render() {
-        return <p>This is the list page.</p>;
-    }
-}
-
-export default List;
+export const Result = () => {
+    return (
+      <>
+        <div>
+          {dummyData.map((data, key) => {
+            return (
+              <div key={key}>
+                {data.title}
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
+export default Result;

@@ -1,10 +1,13 @@
 import { IconButton, TextField} from '@material-ui/core';
 import { SearchOutlined } from '@material-ui/icons';
 import React, { useState } from "react";
-// import { useNavigate } from 'react-router-dom';
+import { Grid } from '@material-ui/core';
+import { Link } from "react-router-dom";
+import logo from '../logo.png'
+import { useNavigate } from 'react-router-dom';
 
 function SearchBar () {
-  //let navigate = useNavigate()
+  let navigate = useNavigate()
   const [content, setContent] = useState('');
   const handleSubmit = (e) => {
       const requestOptions = {
@@ -15,10 +18,18 @@ function SearchBar () {
           })
         };
       fetch("http://127.0.0.1:8000/search/", requestOptions)
+      navigate('./result')
   };
   
   return (
-        <form className='form' onSubmit={handleSubmit}>
+    <Grid 
+        container 
+        justify="center" 
+        alignItems="center" 
+        direction="column"
+        style={{minHeight:"100vh"}}>
+          <img src={logo} alt="Logo" className="logo"/>
+          <form className='form' onSubmit={handleSubmit}>
             <TextField
                 id="search-bar"
                 placeholder= "How can we help?"
@@ -27,14 +38,15 @@ function SearchBar () {
                 style={{width:"100%"}}
                 InputProps={{
                     endAdornment: (
-                    <IconButton type="submit">
-                        <SearchOutlined />
-                    </IconButton>
+                        <IconButton type="submit">
+                          <SearchOutlined />
+                        </IconButton>
                     ),
                 }}
                 variant="outlined"
             />
         </form>
+        </Grid>
   );
 }
 

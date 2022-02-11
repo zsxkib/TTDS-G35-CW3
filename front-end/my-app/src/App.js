@@ -1,20 +1,15 @@
 import './App.css';
-import { Grid } from '@material-ui/core';
-import logo from './logo.png'
-import SearchBar from './search';
+import { Routes, Route, Outlet, Link } from "react-router-dom";
+import SearchBar from './pages/search';
+import Result from './pages/results'
 
 const App = () => {
     return (
-      <Grid 
-        container 
-        justify="center" 
-        alignItems="center" 
-        direction="column"
-        style={{minHeight:"100vh"}}
-      >
-          <img src={logo} alt="Logo" className="logo"/>
-        <SearchBar/>
-      </Grid>
+      <Routes>
+        <Route path="/" element={<SearchBar />}></Route>
+        <Route path="/result" element={<Result />}></Route>
+      </Routes>
+      
     );
 }
 
