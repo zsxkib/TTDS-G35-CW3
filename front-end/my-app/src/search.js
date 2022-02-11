@@ -13,7 +13,7 @@ const SearchBar = (props) => {
               search: content,
             })
           };
-        fetch("http://127.0.0.1:8000/api/searches/", requestOptions)
+        fetch("http://127.0.0.1:8000/search/", requestOptions)
         e.preventdefault()
     };
 
