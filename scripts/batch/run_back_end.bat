@@ -1,3 +1,3 @@
 echo "START BACK-END"
-pip install -r back_end\django\requirments.txt
-python back_end\django\manage.py runserver
+pip install -r back_end\requirments.txt
+python back_end\manage.py runserver
