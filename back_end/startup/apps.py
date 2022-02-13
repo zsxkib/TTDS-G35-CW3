@@ -1,22 +1,22 @@
 from django.apps import AppConfig
 
 import os
-# import SimpleSearch
+# import python.SimpleSearch as SimpleSearch
+from python.SimpleSearch import SimpleSearch
 # import AdvancedSearch
 # import SmartSearch
 # from pathlib import Path
 
 class StartupConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'startup'
+    name = 'startup'#
 
     def ready(self):
         # pass # startup code here
         print("STARTUP!!")
         print(os.getcwd())
         
-        # path_to_corpus = "wikidata_short.xml"
-        # simple_search_obj = SimpleSearch.SimpleSearch(path_to_corpus, rerun=True)
+        path_to_corpus = "wikidata_short.xml"
+        simple_search = SimpleSearch(path_to_corpus, rerun=True)
 
         # TODO: INDEX if not already indexed!
         print("INDEXING CODE (WILL ONLY BE RUN ONCE)")
