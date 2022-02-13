@@ -16,7 +16,11 @@ def search(request):
     if request.method == 'POST':
         search_json = request.body.decode('utf-8')
         # THIS IS THE INPUT (i.e. search_term)!!!
-        search_term = json.loads(search_json)['search']
+        search_term = json.loads(search_json)["searchTerm"]
         # for testing, can delete
         print(search_term)
+        print("SEARCHING CODE")
+
+    if request.method == "GET":
+        pass
     return render(request, "search.html")

@@ -1,3 +1,3 @@
 echo -e "START FRONT-END"
-cd front_end/my_app
+cd front_end
 npm i; npm start

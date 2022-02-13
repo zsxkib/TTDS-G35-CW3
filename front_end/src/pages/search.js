@@ -9,17 +9,30 @@ import { useNavigate } from 'react-router-dom';
 function SearchBar () {
   let navigate = useNavigate()
   const [content, setContent] = useState('');
+
+  // TODO: CHANGE POST TO GET AND OVERWRITE DUMMYDATA IN results.js
   const handleSubmit = (e) => {
       const requestOptions = {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            search: content,
+            searchTerm: content,
           })
         };
       fetch("http://127.0.0.1:8000/search/", requestOptions)
       navigate('./result')
   };
+  const searchForTerm = (e) => {
+    const requestOptions = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          searchTerm: content,
+        })
+      };
+    fetch("http://127.0.0.1:8000/search/", requestOptions)
+    navigate('./result')
+};
   
   return (
     <Grid 
@@ -32,7 +45,7 @@ function SearchBar () {
           <form className='form' onSubmit={handleSubmit}>
             <TextField
                 id="search-bar"
-                placeholder= "How can we help?"
+                placeholder= "Search"
                 value={content}
                 onInput={ e=>setContent(e.target.value)}
                 style={{width:"100%"}}
