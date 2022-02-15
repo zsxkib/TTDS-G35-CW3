@@ -251,7 +251,7 @@ class SimpleSearch:
         print(f'\n\tRunning Proxmimity Search on {self.corpora} with query : {query} and allowed distance : {distance}.')
 
         queryTerms = query
-        if type(query) == str: queryTerms = preprocessing(query)[1][0][0] # TODO: FIX THIS
+        if type(query) == str: queryTerms = preprocessing(query)[1][0][0] 
         
         queryTerms.reverse()
         return self.proxRec(queryTerms, distance, absol)

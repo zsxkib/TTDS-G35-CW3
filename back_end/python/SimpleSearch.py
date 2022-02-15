@@ -7,13 +7,14 @@
 
 # Imports ------------------------------------------
 
-from __future__ import print_function
 import os
 import re
 import json
+import pymongo
 import math as m
 from time import time
 from tqdm import tqdm
+from lxml import etree
 from pathlib import Path
 from itertools import islice
 from sklearn import preprocessing
@@ -22,17 +23,16 @@ from nltk.stem.porter import PorterStemmer
 from concurrent.futures import ThreadPoolExecutor
 
 
-class SimpleSearch:
+class SearchWithJSON:
 
     def __init__(self, path, preindex=['pos'], rerun=False, quiet=True, threads=1, debug=False):
-        self.path = path                                  # path must not inlclude "./" e.g. Do not use path="./wikidata_short.xml", USE path="wikidata_short.xml"
+        self.datapath = Path(path)
         self.rerun = rerun
         self.quiet = quiet
         self.errors = {"xml":{}, "index":[]}
         self.threads = threads                          # Multithreaded is only turned on if threads is raised higher than 1
         self.debug = debug
-        self.datapath = Path.cwd() / "python" / "data" / path
-        self.indexpath = lambda label : Path.cwd() / "data" / f"{label}.{path[:-4]}.json"
+        self.indexpath = lambda label : Path.cwd() / "data" / f"{label}.{self.datapath.name.split('.')[0]}.json"
         start = time()
         self.tags, self.xmldata = self.readXML()
         if self.debug: print(f"Read XML : {time()-start}s")
@@ -293,12 +293,234 @@ class SimpleSearch:
         return output
 
 
+class SearchWithMongo:
+
+    def __init__(self, path, mongoaddress="localhost:27017", checkindex=['pos'], rerun=False, quiet=True, threads=2, debug=False):
+        self.datapath = Path(path)
+        self.dataname = self.datapath.name.split('.')[0]
+        self.rerun = rerun
+        self.quiet = quiet
+        self.errors = {"xml":{}, "index":[]}
+        self.threads = threads                          # Multithreaded is only turned on if threads is raised higher than 1
+        self.debug = debug
+
+        self.client = pymongo.MongoClient(f"mongodb://{mongoaddress}/")
+        self.database = self.client[self.dataname]
+
+        with open(Path.cwd() / "python" / "stopwords.txt") as f:
+            self.stopwords = f.read().splitlines() 
+        if checkindex != [] and type(checkindex) == list: self.checkIndexes(checkindex)
+
+    
+    def getErrors(self):
+        for i, m in self.xmlerrors.items():
+            print(f"XML Error : ID {i} Missing Tags -> {m}")
+
+
+# --------------------------------------------------
+#   Preprocessing
+# --------------------------------------------------
+
+    def readPages(self):
+        page = ""
+        for row in open(self.datapath, 'r'):
+            if "<page>" in row:
+                page = row
+            if "<page>" in page:
+                page += row
+            if "</page>" in row:
+                yield page
+                page = ""
+
+    def preprocessing(self, block):
+        print(f"\t- Preprocessing data in size {block} blocks...")
+        data = []
+        for page in self.readPages():
+            data.append({"id": int(re.split('<.?id>', page)[1]), "title": re.split('<.?title>', page)[1], "text": re.split('<.?text.*>', page)[1]})
+            if len(data) == block:
+                terms = []
+                multprocessing = lambda d : {"id":d["id"], "title":d["title"], "text":self.textprocessing(d["text"])}
+                with ThreadPoolExecutor(max_workers=block) as executor:
+                    for page in executor.map(multprocessing, data):
+                        terms.append(page)
+                self.database['terms'].insert_many(terms)
+                data = []
+        self.database['terms'].insert_many(data)
+
+
+    def textprocessing(self, text, printer=False):
+        tokens = [word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in self.stopwords]
+        terms  = [PorterStemmer().stem(word) for word in tokens]
+
+        if printer: print(f"\t- Queryprocessing : {text} --> {terms['TEXT']}...")
+        return terms
+
+
+
+# --------------------------------------------------
+#   Indexing
+# --------------------------------------------------
+
+    def checkIndexes(self, methods):
+        print("Getting {methods} indexes:") if self.threads == 1 else print("Getting {methods} indexes using {self.threads} as threads:")
+        start = time()
+        if "terms" not in self.database.list_collection_names() or self.rerun:
+            self.database.terms.drop()
+            self.preprocessing(10)
+
+        start = time()
+        with ThreadPoolExecutor(max_workers=len(methods)) as executor:
+            executor.map(self.subIndexing, [method for method in methods if method not in self.database.list_collection_names() or self.rerun])
+        if self.debug: print(f"Indexed : {time()-start}s")
+
+
+    def subIndexing(self, method):
+        print(f"\t- Getting Index : {method}")
+        index = {}
+        for page in self.database.find():
+            if method == 'pos':
+                for i in range(len(self.terms[pid])):
+                    term = self.terms[pid][i]
+                    if term not in index:
+                        index[term] = {}
+                    if pid in index[term]:
+                        index[term][pid].append(i+1)
+                    else:
+                        index[term][pid] = [i+1]
+            elif method == 'seq':
+                index[pid] = [f"{self.terms[pid][i-1]}_{self.terms[pid][i]}" for i in range(1, len(self.terms[pid]))]
+            else:
+                for term in self.terms[pid]:
+                    if term not in index:
+                        index[term] = {}
+                    if method == 'bool':
+                        index[term][pid] = 1
+                    else:
+                        if pid not in index[term]:
+                            index[term][pid] = 0
+                        index[term][pid] += 1
+        return index
+
+
+# --------------------------------------------------
+#   Query Exectution
+# --------------------------------------------------
+
+    def phraseSearch(self, query):
+        print(f'\n\tRunning Phrase Search with query : {query}.')
+        try: index = self.indexes['seq']
+        except: 
+            self.errors['index'].append("Index Error : Sequential index missing for phraseSearch)")
+            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['seq']) )")
+            return "ERROR"
+        processedQuery = self.queryprocessing(query)
+        seqQuery = f"{processedQuery[0]}_{processedQuery[1]}"
+        
+        out = {}
+        for pid in index:
+            for pos in range(len(index[pid])):
+                if index[pid][pos] == seqQuery:
+                    if pid not in out:
+                        out[pid] = []
+                    out[pid].append(pos+1)
+        return out
+
+
+    def rankedIR(self, query):
+        print(f'\tRunning Ranked IR with query : {query}.\n')
+        try: index = self.indexes['pos']
+        except: 
+            self.errors['index'].append("Index Error : Positional index missing for rankedIR")
+            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
+            return "ERROR"
+        N = len(self.tags.keys())
+
+        tf = lambda term, pid : len(index[term][pid]) 
+        df = lambda term : len(index[term])
+        weight = lambda term, pid : (1 + m.log10(tf(term, pid))) * m.log10(N / df(term))
+
+        queryTerms = self.queryprocessing(query)
+        docScores = {}
+
+        for term in queryTerms:
+            for pid in index[term]:
+                if pid not in docScores:
+                    docScores[pid] = 0
+                docScores[pid] += weight(term, pid)
+                
+        return docScores
+
+
+    # Proximity Search Functions -------------------
+
+    def proxRec(self, index, queryTerms, d, absol, out=None):
+        if queryTerms == []:
+            return out
+        else:
+            term = queryTerms.pop()
+            if term not in index:
+                return {}
+            if out == None:
+                return self.proxRec(index, queryTerms, d, absol, index[term])
+            for pid in dict(out):
+                if pid in index[term]:
+                    for n in list(out[pid]):
+                        if absol and True not in [n+a in index[term][pid] for a in range(-d,d+1) if a != 0]:
+                            out[pid].remove(n)
+                        if not absol and True not in [n+a in index[term][pid] for a in range(0,d+1) if a != 0]:
+                            out[pid].remove(n)
+                if pid not in index[term] or out[pid] == []:
+                    out.pop(pid)
+            return self.proxRec(index, queryTerms, d, absol, out)
+
+
+    def proximitySearch(self, query, distance=1, absol=True):
+        print(f"\n\tRunning Proxmimity Search with query : {query} and allowed distance : {distance}.")
+        try: index = self.indexes['pos']
+        except: 
+            self.errors['index'].append("Index Error : Positional index missing for proximitySearch")
+            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
+            return "ERROR"
+
+        query = self.queryprocessing(query)
+        query.reverse()
+        return self.proxRec(index, query, distance, absol)
+
+
+    # Boolean Search Functions ---------------------
+
+    def getLocations(self, i, index, cmds):
+        if cmds[i] != 'NOT':
+            return set(self.proxRec(index, self.queryprocessing(cmds[i])[::-1], 1, False).keys())
+        else:
+            return set(self.proxRec(index, self.queryprocessing(cmds[i+1])[::-1], 1, False).keys()).symmetric_difference(set(self.tags.keys()))
+
+
+    def booleanSearch(self, query):
+        print(f'\n\tRunning Boolean Search with query : {query.strip()}.')
+        try: index = self.indexes['pos']
+        except: 
+            self.errors['index'].append("Index Error : Positional index missing for booleanSearch")
+            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
+            return "ERROR"
+
+        cmds = [x[1:-1] if x[0] == '"' else x for x in re.split("( |\\\".*?\\\"|'.*?')", query) if x != '' and x != ' ']
+
+        output = self.getLocations(0, index, cmds)
+        for i in range(len(cmds)):
+            if cmds[i] == 'AND':
+                output &= self.getLocations(i+1, index, cmds) # Updating Intesect
+            if cmds[i] == 'OR':
+                output |= self.getLocations(i+1, index, cmds) # Updating Union
+        return output
+
+
 # Test Executions ----------------------------------
 
-# print("Running...")
-# start = time()
-# # test = SimpleSearch("test.xml", rerun=True)
-# test = SimpleSearch("wikidata_short.xml", preindex=['pos', 'seq'], rerun=True, debug=False, quiet=False)
+print("Running...")
+start = time()
+# test = SimpleSearch("test.xml", rerun=True)
+test = SearchWithMongo(Path.cwd() / "python/data/wikidata_short.xml", checkindex=['pos', 'seq'], rerun=True, debug=False, quiet=False)
 # print(f"\nResults : {test.booleanSearch('aggression AND violence')}")
-# # data = SimpleSearch("data.xml")
-# print(f"\nExecuted in {round(time()-start, 1)} secs")
+# data = SimpleSearch("data.xml")4
+print(f"\nExecuted in {round(time()-start, 1)} secs")
