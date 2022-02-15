@@ -35,13 +35,13 @@ class AdvancedSearch(SimpleSearch):
 
 # Text Analysis --------------------------------
 
-    def analysis(self, method): 
-        print(f"\n\tRunning Text Analysis on {self.corpora} using {method} method.")
-        if len(self.corpora) != 3: print("\tText Analysis currently only works when using 3 corpora."); return None
+    def analysis(self, method, corpora): 
+        print(f"\n\tRunning Text Analysis on {corpora} using {method} method.")
+        if len(corpora) != 3: print("\tText Analysis currently only works when using 3 corpora."); return None
 
-        Ngids = {corpus:len(self.terms[corpus]) for corpus in self.corpora}
+        Ngids = {corpus:len(self.terms[corpus]) for corpus in corpora}
         index = self.indexes['bool']
-        out = {corpus:{} for corpus in self.corpora}
+        out = {corpus:{} for corpus in corpora}
         for corpus in out:
             incorpus = list(index.keys()); incorpus.remove(str(corpus))
             num  = Ngids[corpus]
@@ -73,7 +73,7 @@ class AdvancedSearch(SimpleSearch):
     def lda(self):
         print(f"\n\tRunning the LDA Model on {self.corpora}.")
         fileLoc = Path.cwd() / "data" / f"LDA_{self.path[:-4]}"
-        # docs = [doc for corpus in self.terms.values() for doc in corpus.values()]
+        #docs = [doc for corpus in self.terms.values() for doc in corpus.values()]
         docs = [doc for corpus, entries in self.terms.items() for doc in entries.values() if corpus in self.corpora]
         dct = Dictionary(docs)
         corpora = [dct.doc2bow(doc) for doc in docs]
