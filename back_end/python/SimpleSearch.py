@@ -7,6 +7,7 @@
 
 # Imports ------------------------------------------
 
+import enum
 import os
 import re
 import json
@@ -23,7 +24,7 @@ from nltk.stem.porter import PorterStemmer
 from concurrent.futures import ThreadPoolExecutor
 
 
-class SearchWithJSON:
+class ClassicSearch:
 
     def __init__(self, path, preindex=['pos'], rerun=False, quiet=True, threads=1, debug=False):
         self.datapath = Path(path)
@@ -98,7 +99,7 @@ class SearchWithJSON:
         tokens = {pid:[word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in stopwords] for pid, text in data.items()}
         terms  = {pid:[PorterStemmer().stem(word) for word in text] for pid, text in tokens.items()}
 
-        print(f"\t- Queryprocessing : {query} --> {terms['QUERY']}...")
+        print(f"\t- Queryprocessing : {query} --> {terms['QUERY']}")
         return terms["QUERY"]
 
 
@@ -205,7 +206,7 @@ class SearchWithJSON:
 
 
     def rankedIR(self, query):
-        print(f'\tRunning Ranked IR with query : {query}.\n')
+        print(f'\tRunning Ranked IR with query : {query}.')
         try: index = self.indexes['pos']
         except: 
             self.errors['index'].append("Index Error : Positional index missing for rankedIR")
@@ -221,9 +222,11 @@ class SearchWithJSON:
         docScores = {}
 
         for term in queryTerms:
+            print(term)
             for pid in index[term]:
                 if pid not in docScores:
                     docScores[pid] = 0
+                print("\t", pid)
                 docScores[pid] += weight(term, pid)
                 
         return docScores
@@ -293,9 +296,9 @@ class SearchWithJSON:
         return output
 
 
-class SearchWithMongo:
+class MongoSearch:
 
-    def __init__(self, path, mongoaddress="localhost:27017", checkindex=['pos'], rerun=False, quiet=True, threads=2, debug=False):
+    def __init__(self, path, mongoaddress="localhost:27017", rerun=False, quiet=True, threads=2, debug=False):
         self.datapath = Path(path)
         self.dataname = self.datapath.name.split('.')[0]
         self.rerun = rerun
@@ -309,7 +312,7 @@ class SearchWithMongo:
 
         with open(Path.cwd() / "python" / "stopwords.txt") as f:
             self.stopwords = f.read().splitlines() 
-        if checkindex != [] and type(checkindex) == list: self.checkIndexes(checkindex)
+        self.checkIndexes()
 
     
     def getErrors(self):
@@ -332,27 +335,31 @@ class SearchWithMongo:
                 yield page
                 page = ""
 
+
     def preprocessing(self, block):
+        multprocessing = lambda d : {"pid":d["pid"], "title":d["title"], "text":self.textprocessing(d["text"])}
+        def processtodb(data):
+            terms = []
+            with ThreadPoolExecutor(max_workers=block) as executor:
+                for page in executor.map(multprocessing, data):
+                    terms.append(page)
+            self.database['terms'].insert_many(terms)
+        
         print(f"\t- Preprocessing data in size {block} blocks...")
         data = []
         for page in self.readPages():
-            data.append({"id": int(re.split('<.?id>', page)[1]), "title": re.split('<.?title>', page)[1], "text": re.split('<.?text.*>', page)[1]})
+            data.append({"pid": int(re.split('<.?id>', page)[1]), "title": re.split('<.?title>', page)[1], "text": re.split('<.?text[^>]*>', page)[1]})
             if len(data) == block:
-                terms = []
-                multprocessing = lambda d : {"id":d["id"], "title":d["title"], "text":self.textprocessing(d["text"])}
-                with ThreadPoolExecutor(max_workers=block) as executor:
-                    for page in executor.map(multprocessing, data):
-                        terms.append(page)
-                self.database['terms'].insert_many(terms)
+                processtodb(data)
                 data = []
-        self.database['terms'].insert_many(data)
+        processtodb(data)
 
 
     def textprocessing(self, text, printer=False):
         tokens = [word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in self.stopwords]
         terms  = [PorterStemmer().stem(word) for word in tokens]
 
-        if printer: print(f"\t- Queryprocessing : {text} --> {terms['TEXT']}...")
+        if printer: print(f"\t- Queryprocessing : {text} --> {terms}")
         return terms
 
 
@@ -361,93 +368,50 @@ class SearchWithMongo:
 #   Indexing
 # --------------------------------------------------
 
-    def checkIndexes(self, methods):
-        print("Getting {methods} indexes:") if self.threads == 1 else print("Getting {methods} indexes using {self.threads} as threads:")
-        start = time()
+    def checkIndexes(self):
+        print("Checking index:") if self.threads == 1 else print(f"Checking index using {self.threads} threads:")
         if "terms" not in self.database.list_collection_names() or self.rerun:
+            start = time()
             self.database.terms.drop()
-            self.preprocessing(10)
+            self.preprocessing(self.threads)
+            if self.debug: print(f"Preprocessed : {time()-start}s")
 
-        start = time()
-        with ThreadPoolExecutor(max_workers=len(methods)) as executor:
-            executor.map(self.subIndexing, [method for method in methods if method not in self.database.list_collection_names() or self.rerun])
-        if self.debug: print(f"Indexed : {time()-start}s")
+        if "index" not in self.database.list_collection_names() or self.rerun:
+            print(f"\t- Indexing data with {self.threads} threads...")
+            start = time()
+            self.database.index.drop()
+            with ThreadPoolExecutor(max_workers=self.threads) as executor:
+                executor.map(self.subIndexing, self.database['terms'].find())
+            if self.debug: print(f"Indexed : {time()-start}s")
+        self.terms = self.database['terms']
+        self.index = self.database['index']
 
 
-    def subIndexing(self, method):
-        print(f"\t- Getting Index : {method}")
-        index = {}
-        for page in self.database.find():
-            if method == 'pos':
-                for i in range(len(self.terms[pid])):
-                    term = self.terms[pid][i]
-                    if term not in index:
-                        index[term] = {}
-                    if pid in index[term]:
-                        index[term][pid].append(i+1)
-                    else:
-                        index[term][pid] = [i+1]
-            elif method == 'seq':
-                index[pid] = [f"{self.terms[pid][i-1]}_{self.terms[pid][i]}" for i in range(1, len(self.terms[pid]))]
-            else:
-                for term in self.terms[pid]:
-                    if term not in index:
-                        index[term] = {}
-                    if method == 'bool':
-                        index[term][pid] = 1
-                    else:
-                        if pid not in index[term]:
-                            index[term][pid] = 0
-                        index[term][pid] += 1
-        return index
+    def subIndexing(self, page):
+        for i, term in enumerate(page['text']):
+            self.database['index'].insert_one({"term": term, "pid":page['pid'], "loc":i})
 
 
 # --------------------------------------------------
 #   Query Exectution
 # --------------------------------------------------
 
-    def phraseSearch(self, query):
-        print(f'\n\tRunning Phrase Search with query : {query}.')
-        try: index = self.indexes['seq']
-        except: 
-            self.errors['index'].append("Index Error : Sequential index missing for phraseSearch)")
-            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['seq']) )")
-            return "ERROR"
-        processedQuery = self.queryprocessing(query)
-        seqQuery = f"{processedQuery[0]}_{processedQuery[1]}"
-        
-        out = {}
-        for pid in index:
-            for pos in range(len(index[pid])):
-                if index[pid][pos] == seqQuery:
-                    if pid not in out:
-                        out[pid] = []
-                    out[pid].append(pos+1)
-        return out
-
-
     def rankedIR(self, query):
-        print(f'\tRunning Ranked IR with query : {query}.\n')
-        try: index = self.indexes['pos']
-        except: 
-            self.errors['index'].append("Index Error : Positional index missing for rankedIR")
-            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
-            return "ERROR"
-        N = len(self.tags.keys())
+        print(f'\tRunning Ranked IR with query : {query}.')
+        N = self.terms.count_documents({})
 
-        tf = lambda term, pid : len(index[term][pid]) 
-        df = lambda term : len(index[term])
-        weight = lambda term, pid : (1 + m.log10(tf(term, pid))) * m.log10(N / df(term))
+        termfreq = lambda term, pid : self.index.count_documents({"term":term, "pid":pid})
+        docs = lambda term : self.index.find({"term":term}).distinct("pid")
+        weight = lambda term, pid : (1 + m.log10(termfreq(term, pid))) * m.log10(N / len(docs(term)))
 
-        queryTerms = self.queryprocessing(query)
+        queryTerms = self.textprocessing(query, True)
         docScores = {}
 
         for term in queryTerms:
-            for pid in index[term]:
+            for pid in docs(term):
                 if pid not in docScores:
                     docScores[pid] = 0
                 docScores[pid] += weight(term, pid)
-                
         return docScores
 
 
@@ -515,12 +479,20 @@ class SearchWithMongo:
         return output
 
 
+class YieldSearch:
+    pass
+
 # Test Executions ----------------------------------
 
 print("Running...")
+
 start = time()
-# test = SimpleSearch("test.xml", rerun=True)
-test = SearchWithMongo(Path.cwd() / "python/data/wikidata_short.xml", checkindex=['pos', 'seq'], rerun=True, debug=False, quiet=False)
-# print(f"\nResults : {test.booleanSearch('aggression AND violence')}")
-# data = SimpleSearch("data.xml")4
-print(f"\nExecuted in {round(time()-start, 1)} secs")
+classic = ClassicSearch(Path.cwd() / "python/data/wikidata_short.xml", rerun=False)
+print(f"\nResults : {classic.rankedIR('aggression violence')}")
+print(f"Classic Executed in {round(time()-start, 1)} secs\n")
+
+start = time()
+mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=True, debug=False, quiet=False)
+print(f"\nResults : {mongo.rankedIR('aggression violence')}")
+print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
+
