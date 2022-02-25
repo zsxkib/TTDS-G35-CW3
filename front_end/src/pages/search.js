@@ -2,11 +2,10 @@ import { IconButton, TextField} from '@material-ui/core';
 import { SearchOutlined } from '@material-ui/icons';
 import React, { useState } from "react";
 import { Grid } from '@material-ui/core';
-import { Link } from "react-router-dom";
 import logo from '../logo.png'
 import { useNavigate } from 'react-router-dom';
 
-function SearchBar () {
+function SearchPage () {
   let navigate = useNavigate()
   const [content, setContent] = useState('');
 
@@ -38,8 +37,9 @@ function SearchBar () {
     <Grid 
         container 
         justify="center" 
-        alignItems="center" 
+        alignItems="center"
         direction="column"
+        className='searchPage'
         style={{minHeight:"100vh"}}>
           <img src={logo} alt="Logo" className="logo"/>
           <form className='form' onSubmit={handleSubmit}>
@@ -59,8 +59,8 @@ function SearchBar () {
                 variant="outlined"
             />
         </form>
-        </Grid>
+    </Grid>
   );
 }
 
-export default SearchBar;
+export default SearchPage;
