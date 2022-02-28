@@ -2,10 +2,10 @@ from django.apps import AppConfig
 
 import os
 # import python.SimpleSearch as SimpleSearch
-from python.SimpleSearch import SimpleSearch
+from python.SimpleSearch import *
 # import AdvancedSearch
 # import SmartSearch
-# from pathlib import Path
+from pathlib import Path
 
 class StartupConfig(AppConfig):
     name = 'startup'#
@@ -15,11 +15,12 @@ class StartupConfig(AppConfig):
         print("STARTUP!!")
         print(os.getcwd())
         
-        path_to_corpus = "wikidata_short.xml"
-        simple_search = SimpleSearch(path_to_corpus, rerun=True)
+        path_to_corpus = Path("back_end/python/data/wikidata_short.xml")
+        # simple_search = ClassicSearch(path_to_corpus, rerun=True)
+        
 
-        # TODO: INDEX if not already indexed!
-        print("INDEXING CODE (WILL ONLY BE RUN ONCE)")
+        # # TODO: INDEX if not already indexed!
+        # print("INDEXING CODE (WILL ONLY BE RUN ONCE)")
 
         # pth2data = "wikidata_short.xml"
         # simple_search_obj = SimpleSearch.SimpleSearch(pth2data, rerun=True)

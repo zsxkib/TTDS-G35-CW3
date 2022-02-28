@@ -484,15 +484,15 @@ class YieldSearch:
 
 # Test Executions ----------------------------------
 
-print("Running...")
+# print("Running...")
 
-start = time()
-classic = ClassicSearch(Path.cwd() / "python/data/wikidata_short.xml", rerun=False)
-print(f"\nResults : {classic.rankedIR('aggression violence')}")
-print(f"Classic Executed in {round(time()-start, 1)} secs\n")
+# start = time()
+# classic = ClassicSearch(Path.cwd() / "python/data/wikidata_short.xml", rerun=False)
+# print(f"\nResults : {classic.rankedIR('aggression violence')}")
+# print(f"Classic Executed in {round(time()-start, 1)} secs\n")
 
-start = time()
-mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=True, debug=False, quiet=False)
-print(f"\nResults : {mongo.rankedIR('aggression violence')}")
-print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
+# start = time()
+# mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=True, debug=False, quiet=False)
+# print(f"\nResults : {mongo.rankedIR('aggression violence')}")
+# print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
 
