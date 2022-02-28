@@ -10,27 +10,21 @@ function SearchPage () {
   const [content, setContent] = useState('');
 
   // TODO: CHANGE POST TO GET AND OVERWRITE DUMMYDATA IN results.js
-  const handleSubmit = (e) => {
-      const requestOptions = {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            searchTerm: content,
-          })
-        };
-      fetch("http://127.0.0.1:8000/search/", requestOptions)
-      navigate('./result')
-  };
-  const searchForTerm = (e) => {
-    const requestOptions = {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          searchTerm: content,
-        })
-      };
-    fetch("http://127.0.0.1:8000/search/", requestOptions)
-    navigate('./result')
+
+  // const handleSubmit = (e) => {
+  //     const requestOptions = {
+  //         method: "POST",
+  //         headers: { "Content-Type": "application/json" },
+  //         body: JSON.stringify({
+  //           searchTerm: content,
+  //         })
+  //       };
+  //     fetch("http://127.0.0.1:8000/search/", requestOptions)
+  //     navigate('./result')
+  // };
+
+const handleSubmit = (e) => {
+  navigate('./result', { state: { searchTerm: content } });
 };
   
   return (
@@ -47,7 +41,7 @@ function SearchPage () {
                 id="search-bar"
                 placeholder= "Search"
                 value={content}
-                onInput={ e=>setContent(e.target.value)}
+                onInput={e=>setContent(e.target.value)}
                 style={{width:"100%"}}
                 InputProps={{
                     endAdornment: (
