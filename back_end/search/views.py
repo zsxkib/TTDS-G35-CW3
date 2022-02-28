@@ -7,9 +7,22 @@ from .models import Search
 from django.shortcuts import render
 import json
 from python.SimpleSearch import *
+from django.http import HttpResponse, JsonResponse
 
-path_to_corpus = Path("back_end/python/data/wikidata_short.xml")
-mongo_search = MongoSearch(path_to_corpus, rerun=True, threads=8)
+dummyData = [
+    {
+      "title": "Apple",
+      "link": "https://en.wikipedia.org/wiki/Apple",
+      "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In in elit mollis tortor consectetur porta ut vel massa. Proin viverra ex non lectus semper, vel vulputate risus aliquam. Aeneaneu auctor quam. Pellentesque ac turpis est. Etiam facilisis lacus mauris, quis faucibus sapien molestiut. Phasellus ultricies, magna a egestas pulvinar, risus mauris aliquam orci,in porta eros nunc in ligula. Done lobortis interdum lectus. Quisque tristique tinciduntdiam quis euismod. Integer quis egestas massa.",
+    },
+    {
+      "title": "Banana",
+      "link": "https://en.wikipedia.org/wiki/Banana",
+      "description": "xxxLorem ipsum dolor sit amet, consectetur adipiscing elit. In in elit mollis tortor consectetur porta ut vel massa. Proin viverra ex non lectus semper, vel vulputate risus aliquam. Aeneaneu auctor quam. Pellentesque ac turpis est. Etiam facilisis lacus mauris, quis faucibus sapien molestiut. Phasellus ultricies, magna a egestas pulvinar, risus mauris aliquam orci,in porta eros nunc in ligula. Done lobortis interdum lectus. Quisque tristique tinciduntdiam quis euismod. Integer quis egestas massa.",
+    },
+  ];
+# path_to_corpus = Path("back_end/python/data/wikidata_short.xml")
+# mongo_search = MongoSearch(path_to_corpus, rerun=True, threads=8)
 
 # Create your views here.
 class SearchView(viewsets.ModelViewSet):
@@ -17,12 +30,14 @@ class SearchView(viewsets.ModelViewSet):
     queryset = Search.objects.all()
 
 def search(request):
-    if request.method == 'POST':
-        search_json = request.body.decode('utf-8')
-        # THIS IS THE INPUT (i.e. search_term)!!!
-        search_term = json.loads(search_json)["searchTerm"]
-        jsonstring = mongo_search.searchtojson(search_term)
-
     if request.method == "GET":
+        search_term = request.GET["query"] 
+        print(search_term)
+        # jsonstring = mongo_search.searchtojson(search_term)
+
+        return JsonResponse({'0': dummyData}, safe=True, content_type="application/json")
+    else:
+        # TODO: ERROR HANDLING
         pass
-    return render(request, "search.html")
+
+    # return render(request, "search.html")
