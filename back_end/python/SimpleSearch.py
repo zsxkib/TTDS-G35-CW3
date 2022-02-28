@@ -7,10 +7,10 @@
 
 # Imports ------------------------------------------
 
-import enum
 import os
 import re
 import json
+import copy
 import pymongo
 import math as m
 from time import time
@@ -87,6 +87,7 @@ class ClassicSearch:
 
         tokens = {pid:[word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in stopwords] for pid, text in tqdm(data.items())}
         terms  = {pid:[PorterStemmer().stem(word) for word in text] for pid, text in tqdm(tokens.items())}
+
         return tokens, terms
 
 
@@ -255,9 +256,9 @@ class ClassicSearch:
             return self.proxRec(index, queryTerms, d, absol, out)
 
 
-    def proximitySearch(self, query, distance=1, absol=True):
+    def proximitySearch(self, query, distance=0, absol=True):
         print(f"\n\tRunning Proxmimity Search with query : {query} and allowed distance : {distance}.")
-        try: index = self.indexes['pos']
+        try: index = copy.deepcopy(self.indexes['pos'])
         except: 
             self.errors['index'].append("Index Error : Positional index missing for proximitySearch")
             if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
@@ -265,7 +266,7 @@ class ClassicSearch:
 
         query = self.queryprocessing(query)
         query.reverse()
-        return self.proxRec(index, query, distance, absol)
+        return self.proxRec(index, query, distance+len(query), absol)
 
 
     # Boolean Search Functions ---------------------
@@ -348,7 +349,7 @@ class MongoSearch:
         print(f"\t- Preprocessing data in size {block} blocks...")
         data = []
         for page in self.readPages():
-            data.append({"pid": int(re.split('<.?id>', page)[1]), "title": re.split('<.?title>', page)[1], "text": re.split('<.?text[^>]*>', page)[1]})
+            data.append({"pid": int(re.split('<.?id>', page)[1]), "title": re.split('<.?title>', page)[1], "text": re.sub('&\w*;', '', re.split('<.?text[^>]*>', page)[1])})
             if len(data) == block:
                 processtodb(data)
                 data = []
@@ -389,7 +390,7 @@ class MongoSearch:
 
     def subIndexing(self, page):
         for i, term in enumerate(page['text']):
-            self.database['index'].insert_one({"term": term, "pid":page['pid'], "loc":i})
+            self.database['index'].insert_one({"term": term, "pid":page['pid'], "loc":i+1})
 
 
 # --------------------------------------------------
@@ -408,74 +409,61 @@ class MongoSearch:
         docScores = {}
 
         for term in queryTerms:
+            print(term)
             for pid in docs(term):
                 if pid not in docScores:
                     docScores[pid] = 0
                 docScores[pid] += weight(term, pid)
+                print('\t', pid)
         return docScores
 
 
-    # Proximity Search Functions -------------------
+    def proximitySearch(self, query, distance=0, absol=True, loud=True):
+        if loud: print(f"\n\tRunning Proxmimity Search with query : {query} and allowed distance : {distance}.")
+        self.database.temp.drop()
+        out = None
+        query = self.textprocessing(query, loud)
+        d = distance+len(query)
+        # query.reverse()
 
-    def proxRec(self, index, queryTerms, d, absol, out=None):
-        if queryTerms == []:
-            return out
-        else:
-            term = queryTerms.pop()
-            if term not in index:
-                return {}
+        for term in query:
             if out == None:
-                return self.proxRec(index, queryTerms, d, absol, index[term])
-            for pid in dict(out):
-                if pid in index[term]:
-                    for n in list(out[pid]):
-                        if absol and True not in [n+a in index[term][pid] for a in range(-d,d+1) if a != 0]:
-                            out[pid].remove(n)
-                        if not absol and True not in [n+a in index[term][pid] for a in range(0,d+1) if a != 0]:
-                            out[pid].remove(n)
-                if pid not in index[term] or out[pid] == []:
-                    out.pop(pid)
-            return self.proxRec(index, queryTerms, d, absol, out)
-
-
-    def proximitySearch(self, query, distance=1, absol=True):
-        print(f"\n\tRunning Proxmimity Search with query : {query} and allowed distance : {distance}.")
-        try: index = self.indexes['pos']
-        except: 
-            self.errors['index'].append("Index Error : Positional index missing for proximitySearch")
-            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
-            return "ERROR"
-
-        query = self.queryprocessing(query)
-        query.reverse()
-        return self.proxRec(index, query, distance, absol)
+                out = self.database.temp
+                out.insert_many(self.index.find({"term":term}))
+            else:
+                for line in out.find({}):
+                    if self.index.count_documents({"$and": [{"term":term, "pid": line["pid"], "loc": {"$gte":line["loc"]-d}}, {"term":term, "pid": line["pid"], "loc": {"$lte":line["loc"]+d}}]}) == 0:
+                        out.delete_one({"pid": line["pid"], "loc": line["loc"]})
+                    elif not absol and self.index.count_documents({"$and": [{"term":term, "pid": line["pid"], "loc": {"$gte":line["loc"]}}, {"term":term, "pid": line["pid"], "loc": {"$lte":line["loc"]+d}}]}) == 0:
+                        out.delete_one({"pid": line["pid"], "loc": line["loc"]})
+        output = {}
+        for line in out.find({}):
+            if line["pid"] not in output:
+                output[line["pid"]] = []
+            output[line["pid"]].append(line["loc"])
+        return output
 
 
     # Boolean Search Functions ---------------------
 
-    def getLocations(self, i, index, cmds):
+    def getLocations(self, i, cmds):
         if cmds[i] != 'NOT':
-            return set(self.proxRec(index, self.queryprocessing(cmds[i])[::-1], 1, False).keys())
+            return set(self.proximitySearch(cmds[i], 0, False, False).keys())
         else:
-            return set(self.proxRec(index, self.queryprocessing(cmds[i+1])[::-1], 1, False).keys()).symmetric_difference(set(self.tags.keys()))
+            return set(self.proximitySearch(cmds[i+1], 0, False, False).keys()).symmetric_difference(set(self.tags.keys()))
 
 
     def booleanSearch(self, query):
         print(f'\n\tRunning Boolean Search with query : {query.strip()}.')
-        try: index = self.indexes['pos']
-        except: 
-            self.errors['index'].append("Index Error : Positional index missing for booleanSearch")
-            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
-            return "ERROR"
 
         cmds = [x[1:-1] if x[0] == '"' else x for x in re.split("( |\\\".*?\\\"|'.*?')", query) if x != '' and x != ' ']
 
-        output = self.getLocations(0, index, cmds)
+        output = self.getLocations(0, cmds)
         for i in range(len(cmds)):
             if cmds[i] == 'AND':
-                output &= self.getLocations(i+1, index, cmds) # Updating Intesect
+                output &= self.getLocations(i+1, cmds) # Updating Intesect
             if cmds[i] == 'OR':
-                output |= self.getLocations(i+1, index, cmds) # Updating Union
+                output |= self.getLocations(i+1, cmds) # Updating Union
         return output
 
 
@@ -484,15 +472,17 @@ class YieldSearch:
 
 # Test Executions ----------------------------------
 
-# print("Running...")
+Question = "Economic AND Systems "
+d = 10
 
-# start = time()
-# classic = ClassicSearch(Path.cwd() / "python/data/wikidata_short.xml", rerun=False)
-# print(f"\nResults : {classic.rankedIR('aggression violence')}")
-# print(f"Classic Executed in {round(time()-start, 1)} secs\n")
+print("Running...")
+start = time()
+classic = ClassicSearch(Path.cwd() / "python/data/wikidata_short.xml", rerun=False)
+print(f"\nResults : {classic.booleanSearch(Question)}")
+print(f"Classic Executed in {round(time()-start, 1)} secs\n")
 
-# start = time()
-# mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=True, debug=False, quiet=False)
-# print(f"\nResults : {mongo.rankedIR('aggression violence')}")
-# print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
+start = time()
+mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=False, debug=False, quiet=False)
+print(f"\nResults : {mongo.booleanSearch(Question)}")
+print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
 
