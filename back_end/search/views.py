@@ -31,11 +31,15 @@ class SearchView(viewsets.ModelViewSet):
 
 def search(request):
     if request.method == "GET":
-        search_term = request.GET["query"] 
-        print(search_term)
+        search_term = request.GET["query"]
+        print(search_term) 
+        if "?" in search_term:
+          # TODO add api call here
+          return 
+        
         # jsonstring = mongo_search.searchtojson(search_term)
-
-        return JsonResponse({'0': dummyData}, safe=True, content_type="application/json")
+        else:
+          return JsonResponse({'0': dummyData}, safe=True, content_type="application/json")
     else:
         # TODO: ERROR HANDLING
         pass
