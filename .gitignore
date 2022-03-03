@@ -15,6 +15,7 @@ enwiki-20211101-pages-articles-multistream.xml
 all_wiki.xml
 *.cpython-39.pyc
 
+/back_end/index/*
 
 # Django
 *.log

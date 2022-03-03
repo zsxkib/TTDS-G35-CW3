@@ -16,4 +16,5 @@ tqdm==4.62.3
 django
 djangorestframework
 django-cors-headers
+ssh_pymongo
 pymongo

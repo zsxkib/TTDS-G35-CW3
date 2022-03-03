@@ -11,14 +11,15 @@ import os
 import re
 import json
 import copy
+import shutil
 import pymongo
 import math as m
 from time import time
 from tqdm import tqdm
-from lxml import etree
 from pathlib import Path
 from itertools import islice
 from sklearn import preprocessing
+from ssh_pymongo import MongoSession
 import xml.etree.ElementTree as ET
 from nltk.stem.porter import PorterStemmer
 from concurrent.futures import ThreadPoolExecutor
@@ -299,7 +300,7 @@ class ClassicSearch:
 
 class MongoSearch:
 
-    def __init__(self, path, mongoaddress="localhost:27017", rerun=False, quiet=True, threads=2, debug=False):
+    def __init__(self, path, rerun=False, quiet=True, threads=2, debug=False):
         self.datapath = Path(path)
         self.dataname = self.datapath.name.split('.')[0]
         self.rerun = rerun
@@ -308,7 +309,10 @@ class MongoSearch:
         self.threads = threads                          # Multithreaded is only turned on if threads is raised higher than 1
         self.debug = debug
 
-        self.client = pymongo.MongoClient(f"mongodb://{mongoaddress}/")
+        # session = MongoSession('20.58.1.234', port=22, user='dan', password='FJackv8w0Lf6', uri=f'mongodb://localhost:27017/')
+        # self.database = session.connection[self.dataname]
+
+        self.client = pymongo.MongoClient(f"mongodb://localhost:27017/")
         self.database = self.client[self.dataname]
 
         with open(Path.cwd() / "python" / "stopwords.txt") as f:
@@ -468,21 +472,244 @@ class MongoSearch:
 
 
 class YieldSearch:
-    pass
+
+    def __init__(self, datapath, indexpath, rerun=False, quiet=True, threads=25, debug=False):
+        self.datapath = Path(datapath)
+        self.indexpath = Path(indexpath)
+        self.rerun = rerun
+        self.quiet = quiet
+        self.errors = {"xml":{}, "index":[]}
+        self.threads = threads                          # Multithreaded is only turned on if threads is raised higher than 1
+        self.debug = debug
+        start = time()
+
+        with open(Path.cwd() / "python" / "stopwords.txt") as f:
+            self.stopwords = f.read().splitlines() 
+
+        self.checkIndexes(50)
+        if self.debug: print(f"Checked Index : {time()-start}s")
+
+    
+    def splitDict(self, data, blocks):
+        size = m.ceil(len(data)/blocks)
+        for i in range(0, len(data), size):
+            yield {k:data[k] for k in islice(iter(data), size)}
+
+    def getErrors(self):
+        for i, m in self.xmlerrors.items():
+            print(f"XML Error : ID {i} Missing Tags -> {m}")
+
+
+# --------------------------------------------------
+#   Preprocessing
+# --------------------------------------------------
+
+    def readPages(self):
+        page = ""
+        for row in open(self.datapath, 'r'):
+            if "<page>" in row:
+                page = row
+            if "<page>" in page:
+                page += row
+            if "</page>" in row:
+                yield page
+                page = ""
+
+
+    def preprocessing(self, block):
+        extract = lambda page : {"pid": int(re.split('<.?id>', page)[1]), "title": re.split('<.?title>', page)[1], "terms": self.textprocessing(re.sub('&\w*;', '', re.split('<.?text[^>]*>', page)[1]))}
+        def process(data):
+            for page in data:
+                doc = extract(page)
+                with open(self.indexpath / "Terms" / f"{doc['pid']}.json", "w") as f:
+                    f.write(json.dumps(doc))
+
+        with ThreadPoolExecutor(max_workers=self.threads) as executor:
+            pages = []
+            for page in self.readPages():
+                pages.append(page)
+                if len(pages) == block:
+                    executor.submit(process, pages)
+                    pages = []
+
+
+
+    def textprocessing(self, text, printer=False):
+        tokens = [word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in self.stopwords]
+        terms  = [PorterStemmer().stem(word) for word in tokens]
+
+        if printer: print(f"\t- Queryprocessing : {text} --> {terms}")
+        return terms
+
+
+# --------------------------------------------------
+#   Indexing
+# --------------------------------------------------
+
+    def terms(self):
+        for doc in os.listdir(self.indexpath / "Terms"):
+            with open(self.indexpath / "Terms" / doc, "r") as f:
+                yield json.loads(f.read())
+
+    def checkIndexes(self, block):
+        print("Checking index:") if self.threads == 1 else print(f"Checking index using {self.threads} threads:")
+        if not os.path.isdir(self.indexpath / "Terms") or self.rerun:
+            print(f"\t- Preprocessing data in size {block} blocks...")
+            if self.rerun and os.path.isdir(self.indexpath / "Terms"): shutil.rmtree(self.indexpath / "Terms", ignore_errors=True)
+            os.mkdir(self.indexpath / "Terms")
+            start = time()
+            self.preprocessing(block)
+            if self.debug: print(f"Preprocessed : {time()-start}s")
+
+        if not os.path.isdir(self.indexpath / "Index") or self.rerun:
+            print(f"\t- Indexing data with {self.threads} threads...")
+            if self.rerun and os.path.isdir(self.indexpath / "Index"): shutil.rmtree(self.indexpath / "Index", ignore_errors=True)
+            os.mkdir(self.indexpath / "Index")
+            start = time()
+            # with ThreadPoolExecutor(max_workers=self.threads) as executor:
+            docs = []
+            for doc in tqdm(self.terms()):
+                docs.append(doc)
+                if len(docs) == block:
+                    self.indexer(docs)
+                    # executor.submit(self.indexer, docs)
+                    docs = []
+
+
+            if self.debug: print(f"Indexed : {time()-start}s")
+
+
+    def indexer(self, docs):
+        index = {}
+        for doc in docs:
+            for i in range(len(doc['terms'])):
+                term = doc['terms'][i]
+                if not os.path.isdir(self.indexpath / "Index" / term):
+                    os.mkdir(self.indexpath / "Index" / term)
+                if not os.path.isdir(self.indexpath / "Index" / term / str(doc['pid'])):
+                    os.mkdir(self.indexpath / "Index" / term / str(doc['pid']))
+                os.mkdir(self.indexpath / "Index" / term / str(doc['pid']) / str(i))
+        
+
+# --------------------------------------------------
+#   Translator
+# --------------------------------------------------
+
+
+
+
+# --------------------------------------------------
+#   Query Exectution
+# --------------------------------------------------
+
+    def rankedIR(self, query):
+        print(f'\tRunning Ranked IR with query : {query}.')
+        try: index = self.indexes['pos']
+        except: 
+            self.errors['index'].append("Index Error : Positional index missing for rankedIR")
+            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
+            return "ERROR"
+        N = len(self.tags.keys())
+
+        tf = lambda term, pid : len(index[term][pid]) 
+        df = lambda term : len(index[term])
+        weight = lambda term, pid : (1 + m.log10(tf(term, pid))) * m.log10(N / df(term))
+
+        queryTerms = self.queryprocessing(query)
+        docScores = {}
+
+        for term in queryTerms:
+            print(term)
+            for pid in index[term]:
+                if pid not in docScores:
+                    docScores[pid] = 0
+                print("\t", pid)
+                docScores[pid] += weight(term, pid)
+                
+        return docScores
+
+
+    # Proximity Search Functions -------------------
+
+    def proxRec(self, index, queryTerms, d, absol, out=None):
+        if queryTerms == []:
+            return out
+        else:
+            term = queryTerms.pop()
+            if term not in index:
+                return {}
+            if out == None:
+                return self.proxRec(index, queryTerms, d, absol, index[term])
+            for pid in dict(out):
+                if pid in index[term]:
+                    for n in list(out[pid]):
+                        if absol and True not in [n+a in index[term][pid] for a in range(-d,d+1) if a != 0]:
+                            out[pid].remove(n)
+                        if not absol and True not in [n+a in index[term][pid] for a in range(0,d+1) if a != 0]:
+                            out[pid].remove(n)
+                if pid not in index[term] or out[pid] == []:
+                    out.pop(pid)
+            return self.proxRec(index, queryTerms, d, absol, out)
+
+
+    def proximitySearch(self, query, distance=0, absol=True):
+        print(f"\n\tRunning Proxmimity Search with query : {query} and allowed distance : {distance}.")
+        try: index = copy.deepcopy(self.indexes['pos'])
+        except: 
+            self.errors['index'].append("Index Error : Positional index missing for proximitySearch")
+            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
+            return "ERROR"
+
+        query = self.queryprocessing(query)
+        query.reverse()
+        return self.proxRec(index, query, distance+len(query), absol)
+
+
+    # Boolean Search Functions ---------------------
+
+    def getLocations(self, i, index, cmds):
+        if cmds[i] != 'NOT':
+            return set(self.proxRec(index, self.queryprocessing(cmds[i])[::-1], 1, False).keys())
+        else:
+            return set(self.proxRec(index, self.queryprocessing(cmds[i+1])[::-1], 1, False).keys()).symmetric_difference(set(self.tags.keys()))
+
+
+    def booleanSearch(self, query):
+        print(f'\n\tRunning Boolean Search with query : {query.strip()}.')
+        try: index = self.indexes['pos']
+        except: 
+            self.errors['index'].append("Index Error : Positional index missing for booleanSearch")
+            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
+            return "ERROR"
+
+        cmds = [x[1:-1] if x[0] == '"' else x for x in re.split("( |\\\".*?\\\"|'.*?')", query) if x != '' and x != ' ']
+
+        output = self.getLocations(0, index, cmds)
+        for i in range(len(cmds)):
+            if cmds[i] == 'AND':
+                output &= self.getLocations(i+1, index, cmds) # Updating Intesect
+            if cmds[i] == 'OR':
+                output |= self.getLocations(i+1, index, cmds) # Updating Union
+        return output
+
 
 # Test Executions ----------------------------------
 
 Question = "Economic AND Systems "
 d = 10
 
-print("Running...")
-start = time()
-classic = ClassicSearch(Path.cwd() / "python/data/wikidata_short.xml", rerun=False)
-print(f"\nResults : {classic.booleanSearch(Question)}")
-print(f"Classic Executed in {round(time()-start, 1)} secs\n")
+# print("Running...")
+# start = time()
+# classic = ClassicSearch(Path.cwd() / "python/data/wikidata_short.xml", rerun=False)
+# print(f"\nResults : {classic.booleanSearch(Question)}")
+# print(f"Classic Executed in {round(time()-start, 1)} secs\n")
 
 start = time()
-mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=False, debug=False, quiet=False)
+mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=True, debug=False, quiet=False)
 print(f"\nResults : {mongo.booleanSearch(Question)}")
 print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
 
+start = time()
+classic = YieldSearch(Path.cwd() / "back_end/python/data/wikidata_short.xml", Path.cwd() / "back_end/index", rerun=True)
+# print(f"\nResults : {classic.booleanSearch(Question)}")
+print(f"Yield Executed in {round(time()-start, 1)} secs\n")
