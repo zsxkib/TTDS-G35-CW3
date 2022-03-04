@@ -14,6 +14,7 @@ import copy
 import shutil
 import pymongo
 import math as m
+import numpy as np
 from time import time
 from tqdm import tqdm
 from pathlib import Path
@@ -486,7 +487,7 @@ class YieldSearch:
         with open(Path.cwd() / "python" / "stopwords.txt") as f:
             self.stopwords = f.read().splitlines() 
 
-        self.checkIndexes(50)
+        self.checkIndexes(2**13)
         if self.debug: print(f"Checked Index : {time()-start}s")
 
     
@@ -506,7 +507,7 @@ class YieldSearch:
 
     def readPages(self):
         page = ""
-        for row in open(self.datapath, 'r'):
+        for row in open(self.datapath, 'r', encoding="utf8"):
             if "<page>" in row:
                 page = row
             if "<page>" in page:
@@ -528,11 +529,18 @@ class YieldSearch:
             pages = []
             for page in self.readPages():
                 pages.append(page)
-                if len(pages) == block:
+                if len(pages) >= block:
                     executor.submit(process, pages)
                     pages = []
-
-
+        # by this point, len(pages) < block, and we need to give an equal number of pages to each thread!
+        # executor = ThreadPoolExecutor(max_workers=self.threads)
+        # executor.map(process, np.array_split(pages, self.threads))
+        # executor.shutdown()
+        with ThreadPoolExecutor(max_workers=self.threads) as executor:
+            page_chunks = map(list, np.array_split(pages, self.threads))
+            for page in page_chunks:
+                    executor.submit(process, page)
+                
 
     def textprocessing(self, text, printer=False):
         tokens = [word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in self.stopwords]
@@ -570,11 +578,19 @@ class YieldSearch:
             docs = []
             for doc in tqdm(self.terms()):
                 docs.append(doc)
-                if len(docs) == block:
+                if len(docs) >= block:
                     self.indexer(docs)
                     # executor.submit(self.indexer, docs)
                     docs = []
-
+            self.indexer(docs)
+            # by this point, len(docs) < block, and we need to give an equal number of docs to each thread!
+            # ThreadPoolExecutor(max_workers=self.threads)
+            # executor.map(self.indexer, np.array_split(docs, self.threads))
+            # executor.shutdown()
+            # with ThreadPoolExecutor(max_workers=self.threads) as executor:
+            #     doc_chunks = map(list, np.array_split(docs, self.threads))
+            #     for doc in doc_chunks:
+            #         executor.submit(self.indexer, docs)
 
             if self.debug: print(f"Indexed : {time()-start}s")
 
@@ -595,8 +611,16 @@ class YieldSearch:
 #   Translator
 # --------------------------------------------------
 
+    def indexes(term=None, pid=None):
+        terms_pth = self.indexpath / "Index" / term #back_end\index\Index\0 (term)\1000 (doc)\5000 (loc)
+        idx_term = os.listdir(terms_pth)
+        if not pid: 
+            return idx_term
 
-
+        idx_term_pids = []
+        for idx_term_pid in idx_term:
+            idx_term_pid += json.loads(self.indexpath / "Term" / f"{idx_term_pid}.json")["terms"]
+        return idx_term_pid
 
 # --------------------------------------------------
 #   Query Exectution
@@ -613,6 +637,9 @@ class YieldSearch:
 
         tf = lambda term, pid : len(index[term][pid]) 
         df = lambda term : len(index[term])
+        # tf_os = lambda term : len(indexes(term, pid))
+        # df_os = lambda term : len(indexes(term))
+
         weight = lambda term, pid : (1 + m.log10(tf(term, pid))) * m.log10(N / df(term))
 
         queryTerms = self.queryprocessing(query)
@@ -704,12 +731,21 @@ d = 10
 # print(f"\nResults : {classic.booleanSearch(Question)}")
 # print(f"Classic Executed in {round(time()-start, 1)} secs\n")
 
-start = time()
-mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=True, debug=False, quiet=False)
-print(f"\nResults : {mongo.booleanSearch(Question)}")
-print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
+# start = time()
+# mongo = MongoSearch(Path.cwd() / "python/data/wikidata_short.xml", threads=6, rerun=True, debug=False, quiet=False)
+# print(f"\nResults : {mongo.booleanSearch(Question)}")
+# print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
 
 start = time()
-classic = YieldSearch(Path.cwd() / "back_end/python/data/wikidata_short.xml", Path.cwd() / "back_end/index", rerun=True)
-# print(f"\nResults : {classic.booleanSearch(Question)}")
+classic = YieldSearch(
+    Path.cwd() / "back_end/python/data/wikidata_notsoshort.xml", 
+    Path.cwd() / "back_end/index", 
+    rerun=True,
+    debug=True, 
+    threads=os.cpu_count()*5,
+    )
+# classic = YieldSearch(Path.cwd() / "back_end/python/data/all_wiki.xml", Path.cwd() / "back_end/index", rerun=True, debug=True)
+print(f"\nResults : {classic.booleanSearch(Question)}")
 print(f"Yield Executed in {round(time()-start, 1)} secs\n")
+
+# d: && cd TTDS-G35-CW3 && conda activate ttds && scripts\batch\run_back_end.bat
