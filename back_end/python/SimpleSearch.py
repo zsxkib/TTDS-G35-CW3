@@ -815,13 +815,8 @@ class IRSearch():
 
 # Test Executions ----------------------------------
 
-<<<<<<< Updated upstream
-# Question = "Economic AND Systems "
-# d = 10
-=======
 Question = "Economic Systems "
 d = 10
->>>>>>> Stashed changes
 
 # print("Running...")
 # start = time()
@@ -835,22 +830,13 @@ d = 10
 # print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
 
 # start = time()
-<<<<<<< Updated upstream
-# classic = YieldSearch(
-=======
 # yields = YieldSearch(
->>>>>>> Stashed changes
 #     Path.cwd() / "back_end/python/data/wikidata_notsoshort.xml", 
 #     Path.cwd() / "back_end/index", 
 #     rerun=True,
 #     debug=True, 
 #     threads=os.cpu_count()*5,
 #     )
-<<<<<<< Updated upstream
-# # classic = YieldSearch(Path.cwd() / "back_end/python/data/all_wiki.xml", Path.cwd() / "back_end/index", rerun=True, debug=True)
-# print(f"\nResults : {classic.booleanSearch(Question)}")
-# print(f"Yield Executed in {round(time()-start, 1)} secs\n")
-=======
 # # yields = YieldSearch(Path.cwd() / "back_end/python/data/all_wiki.xml", Path.cwd() / "back_end/index", rerun=True, debug=True)
 # print(f"\nResults : {yields.booleanSearch(Question)}")
 # print(f"Yield Executed in {round(time()-start, 1)} secs\n")
@@ -865,5 +851,4 @@ irs = IRSearch(
     )
 print(f"\nResults : {irs.rankedIR(Question)}")
 print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
->>>>>>> Stashed changes
 
