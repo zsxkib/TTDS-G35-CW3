@@ -722,8 +722,8 @@ class YieldSearch:
 
 # Test Executions ----------------------------------
 
-Question = "Economic AND Systems "
-d = 10
+# Question = "Economic AND Systems "
+# d = 10
 
 # print("Running...")
 # start = time()
@@ -736,16 +736,16 @@ d = 10
 # print(f"\nResults : {mongo.booleanSearch(Question)}")
 # print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
 
-start = time()
-classic = YieldSearch(
-    Path.cwd() / "back_end/python/data/wikidata_notsoshort.xml", 
-    Path.cwd() / "back_end/index", 
-    rerun=True,
-    debug=True, 
-    threads=os.cpu_count()*5,
-    )
-# classic = YieldSearch(Path.cwd() / "back_end/python/data/all_wiki.xml", Path.cwd() / "back_end/index", rerun=True, debug=True)
-print(f"\nResults : {classic.booleanSearch(Question)}")
-print(f"Yield Executed in {round(time()-start, 1)} secs\n")
+# start = time()
+# classic = YieldSearch(
+#     Path.cwd() / "back_end/python/data/wikidata_notsoshort.xml", 
+#     Path.cwd() / "back_end/index", 
+#     rerun=True,
+#     debug=True, 
+#     threads=os.cpu_count()*5,
+#     )
+# # classic = YieldSearch(Path.cwd() / "back_end/python/data/all_wiki.xml", Path.cwd() / "back_end/index", rerun=True, debug=True)
+# print(f"\nResults : {classic.booleanSearch(Question)}")
+# print(f"Yield Executed in {round(time()-start, 1)} secs\n")
 
 # d: && cd TTDS-G35-CW3 && conda activate ttds && scripts\batch\run_back_end.bat

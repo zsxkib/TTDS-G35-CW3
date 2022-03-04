@@ -181,3 +181,4 @@ chrome-user-data
 .vscode
 *.swp
 *.swo
+back_end/python/data/wikidata_notsoshort.xml
