@@ -15,7 +15,11 @@ enwiki-20211101-pages-articles-multistream.xml
 all_wiki.xml
 *.cpython-39.pyc
 
+<<<<<<< Updated upstream
 /back_end/index/*   
+=======
+/back_end/index/*
+>>>>>>> Stashed changes
 /back_end/indexv2/*
 
 # Django
