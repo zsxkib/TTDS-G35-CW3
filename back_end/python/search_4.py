@@ -63,9 +63,9 @@ def get_title_number_by(docid: int) -> int:
     return TITLE_DICT[TITLE_LIST[pos]]
 
 
-def get_titles(fno: int, docid: int) -> str:
+def get_titles(file_number: int, docid: int) -> str:
     global TITLE_DICT
-    with open(f"{PATH_TO_IDX}/title"+str(fno), "r") as f:
+    with open(f"{PATH_TO_IDX}/title{file_number}", "r", encoding="utf8") as f:
         for line in f:
             line = line.split("-")
             if int(line[0]) == docid:
