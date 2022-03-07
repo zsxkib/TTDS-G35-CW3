@@ -30,7 +30,7 @@ const UsingFetch = () => {
             <li key={user.title}>
               {user.title}
               <br></br>
-              {user.link}
+              <a href={user.link}>{user.link}</a>
               <br></br>
               {user.description}
             </li>
