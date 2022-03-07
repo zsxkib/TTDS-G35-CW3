@@ -21,7 +21,7 @@ PTR_DICT = defaultdict(dict)
 STOPWORDS = defaultdict(int)
 WORD_DICT = defaultdict(dict)
 TITLE_DICT = defaultdict(str)
-PATH_TO_STOPWORDS = "./stop_words.txt"
+PATH_TO_STOPWORDS = "./back_end/python/stop_words.txt"
 PATH_TO_CORPUS = sys.argv[1] if Path(sys.argv[1]).is_file() else "./wikidata_short.xml" 
 PATH_TO_IDX = f"./idx_{PATH_TO_CORPUS.split('/')[-1].replace('.', '').replace('/', '').replace('xml', '')}"
 Path(PATH_TO_IDX).mkdir(parents=True, exist_ok=True)

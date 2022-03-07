@@ -2,7 +2,7 @@ from django.apps import AppConfig
 
 import os
 # import python.SimpleSearch as SimpleSearch
-from python.SimpleSearch import *
+# from python.SimpleSearch import *
 # import AdvancedSearch
 # import SmartSearch
 from pathlib import Path
@@ -11,11 +11,12 @@ class StartupConfig(AppConfig):
     name = 'startup'#
 
     def ready(self):
+        pass
         # pass # startup code here
-        print("STARTUP!!")
-        print(os.getcwd())
+        # print("STARTUP!!")
+        # print(os.getcwd())
         
-        path_to_corpus = Path("back_end/python/data/wikidata_short.xml")
+        # path_to_corpus = Path("back_end/python/data/wikidata_short.xml")
         # simple_search = ClassicSearch(path_to_corpus, rerun=True)
         
 

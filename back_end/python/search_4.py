@@ -6,9 +6,9 @@ import math
 import timeit
 from pathlib import Path
 from collections import defaultdict
-from index_wiki_dump import remove_stop_words, stem, tokenise
+from python.index_wiki_dump import remove_stop_words, stem, tokenise
 
-PATH_TO_IDX = sys.argv[1] if Path(sys.argv[1]).is_dir() else "./idx_wikidata_short"
+PATH_TO_IDX = sys.argv[1] if Path(sys.argv[1]).is_dir() else "./back_end/python/idx_wikidata_short"
 WORD_LIST = []
 TITLE_LIST = []
 TITLE_DICT = defaultdict(int)
@@ -205,10 +205,11 @@ def rank_field_query_results(posting_dict: defaultdict[str], query_dict: default
     return ranked_list
 
 
-def simple_query(query: str) -> None:
+def simple_query(query: str) -> list:
     global TITLE_DICT
     qwords = stem(remove_stop_words(tokenise(query)))
     posting_dict = defaultdict(list)
+    hits = []
 
     for word in qwords:
         file_number = get_file_number_by(word)
@@ -220,18 +221,24 @@ def simple_query(query: str) -> None:
         hit_counter, i = 0, 0
 
         while True:
-            if hit_counter>10 or i>1000:
+            if i>len(sorted_ranked_docids) or hit_counter>10 or i>1000:
+                break
+            try:
+                file_number = get_title_number_by(sorted_ranked_docids[i])
+                hit = get_titles(file_number, sorted_ranked_docids[i]) # broken
+            except IndexError:
                 break
 
-            file_number = get_title_number_by(sorted_ranked_docids[i])
-            hit = get_titles(file_number, sorted_ranked_docids[i]) # broken
-
             if hit is not None:
-                print(f"{hit}\t[http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}]")
+                hits += [{"title": hit,
+                          "link": f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}",
+                          "description": ""}]
+                # print(f"{hit}\t[http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}]")
                 hit_counter += 1
             i += 1
     else:
         print("No Matches Found")
+    return hits
 
 
 def field_query(query: str) -> None:
@@ -239,6 +246,7 @@ def field_query(query: str) -> None:
     query_dict = get_field_query_dict(query)
     qwords = list(query_dict.keys())
     posting_dict = defaultdict(list)
+    hits = []
 
     for word in qwords:
         file_number = get_file_number_by(word)
@@ -250,41 +258,48 @@ def field_query(query: str) -> None:
         hit_counter, i = 0, 0
 
         while True:
-            if hit_counter>10 or i>1000:
+            if i>len(sorted_ranked_docids) or hit_counter>10 or i>1000:
+                break
+            try:
+                file_number = get_title_number_by(sorted_ranked_docids[i])
+                hit = get_titles(file_number, sorted_ranked_docids[i]) # broken
+            except IndexError:
                 break
 
-            file_number = get_title_number_by(sorted_ranked_docids[i]) # THIS IS WORKING
-            hit = get_titles(file_number, sorted_ranked_docids[i]) # THIS IS BROKEN
-
             if hit is not None:
-                print(f"{hit}\t[http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}]")
+                hits += [{"title": hit,
+                          "link": f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}",
+                          "description": ""}]
+                # print(f"{hit}\t[http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}]")
                 hit_counter += 1
             i += 1
     else:
         print("No Matches Found")
+    return hits
 
 
 def main() -> None:
-    load_offsetfile()
-    load_titles()
+    pass
+    # load_offsetfile()
+    # load_titles()
     # query = "t:Anarchism"
     # query = query.lower()
     # print(f"query = {query}")
     # t:(title) b:(body) i:(infobox) c:category l:(links)
-    start = timeit.default_timer()
-    for query in ("t:Hello", "t:Anarchism", "Anarchism"):
-        query = query.lower()
-        print(f"query = {query}")
-        if any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:")):
-            print("field_query\n")
-            print("\nHits:")
-            field_query(query)
-        else:
-            print("\nsimple_query\n")
-            print("\nHits:")
-            simple_query(query)
-    stop = timeit.default_timer()
-    print ("\ntime :- "+str(stop - start))
+    # start = timeit.default_timer()
+    # for query in ("t:Hello", "t:Anarchism", "Anarchism"):
+    #     query = query.lower()
+    #     print(f"query = {query}")
+    #     if any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:")):
+    #         print("field_query\n")
+    #         print("\nHits:")
+    #         field_query(query)
+    #     else:
+    #         print("\nsimple_query\n")
+    #         print("\nHits:")
+    #         simple_query(query)
+    # stop = timeit.default_timer()
+    # print ("\ntime :- "+str(stop - start))
 
 if __name__ == "__main__":
     main()

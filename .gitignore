@@ -187,3 +187,9 @@ chrome-user-data
 *.swp
 *.swo
 back_end/python/data/wikidata_notsoshort.xml
+*.pyc
+back_end/python/__pycache__/SimpleSearch.cpython-39.pyc
+back_end/search_engine/__pycache__/__init__.cpython-39.pyc
+back_end/search_engine/__pycache__/settings.cpython-39.pyc
+back_end/startup/__pycache__/__init__.cpython-39.pyc
+back_end/startup/__pycache__/apps.cpython-39.pyc
