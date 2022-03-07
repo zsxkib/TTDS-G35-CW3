@@ -720,9 +720,102 @@ class YieldSearch:
         return output
 
 
+class IRSearch():
+
+    def __init__(self, datapath, indexpath, rerun=False, threads=4, debug=False):
+        self.datapath = Path(datapath)
+        self.indexpath = Path(indexpath)
+        self.threads = threads
+        self.rerun = rerun
+        self.debug = debug
+
+        self.N = 0
+        for i in self.readPages():
+            self.N += 1
+        
+        if rerun:
+            print("Deleting Old Data", end="...  ")
+            shutil.rmtree(self.indexpath, True)
+            os.mkdir(self.indexpath)
+            print("Deleted")
+
+            with open(Path.cwd() / "python" / "stopwords.txt") as f:
+                self.stopwords = f.read().splitlines() 
+            
+            self.createIndex()
+
+    def readPages(self):
+        page = ""
+        for row in open(self.datapath, 'r', encoding="utf8"):
+            if "<page>" in row:
+                page = row
+            if "<page>" in page:
+                page += row
+            if "</page>" in row:
+                yield page
+                page = ""
+
+
+    def textprocessing(self, text, printer=False):
+        tokens = [word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in self.stopwords]
+        terms  = [PorterStemmer().stem(word) for word in tokens]
+
+        if printer: print(f"\t- Queryprocessing : {text} --> {terms}")
+        return terms
+
+
+    def createIndex(self):
+        extract = lambda page : {'pid': int(re.split('<.?id>', page)[1]),  'terms': self.textprocessing(re.sub('&\w*;', '', re.split('<.?text[^>]*>', page)[1]))}
+        
+        def indexpage(page):
+            termerised = extract(page)
+            for term in tqdm(termerised['terms'], leave=False):
+                if os.path.isfile(self.indexpath / term):
+                    with open(self.indexpath / term, 'r') as f:
+                        text = f.read().split(',')
+                else:
+                    text = ['0']
+                with open(self.indexpath / term, 'w') as f:
+                    notfound = True
+                    for i in range(len(text)):
+                        if ':' in text[i]:
+                            pid, num = text[i].split(':')
+                            if int(pid) == termerised['pid']:
+                                text[i] = f"{pid}:{int(num)+1}"
+                                notfound = False
+                    if notfound:
+                        text[0] = str(int(text[0])+1)
+                        text.append(f"{termerised['pid']}:1")
+                    f.write(','.join(text))
+       
+        with ThreadPoolExecutor(max_workers=self.threads) as executor:
+            for page in self.readPages():
+                executor.submit(indexpage, page)
+
+
+    def rankedIR(self, query):
+        print(f'\tRunning Ranked IR with query : {query}.')
+
+        weight = lambda tf, df : (1 + m.log10(tf)) * m.log10(self.N / df)
+
+        queryTerms = self.textprocessing(query, True)
+        docScores = {}
+
+        for term in queryTerms:
+            if not os.path.isfile(self.indexpath / term): continue
+            with open(self.indexpath / term) as f:
+                info = f.read().split(',')
+                for page in info[1:]:
+                    pid, num = page.split(':')
+                    if pid not in docScores:
+                        docScores[pid] = 0
+                    docScores[pid] += weight(int(num), int(info[0]))
+                
+        return docScores
+
 # Test Executions ----------------------------------
 
-Question = "Economic AND Systems "
+Question = "Economic Systems "
 d = 10
 
 # print("Running...")
@@ -736,16 +829,26 @@ d = 10
 # print(f"\nResults : {mongo.booleanSearch(Question)}")
 # print(f"Mongo Executed in {round(time()-start, 1)} secs\n")
 
-start = time()
-classic = YieldSearch(
-    Path.cwd() / "back_end/python/data/wikidata_notsoshort.xml", 
-    Path.cwd() / "back_end/index", 
-    rerun=True,
-    debug=True, 
-    threads=os.cpu_count()*5,
-    )
-# classic = YieldSearch(Path.cwd() / "back_end/python/data/all_wiki.xml", Path.cwd() / "back_end/index", rerun=True, debug=True)
-print(f"\nResults : {classic.booleanSearch(Question)}")
-print(f"Yield Executed in {round(time()-start, 1)} secs\n")
+# start = time()
+# yields = YieldSearch(
+#     Path.cwd() / "back_end/python/data/wikidata_notsoshort.xml", 
+#     Path.cwd() / "back_end/index", 
+#     rerun=True,
+#     debug=True, 
+#     threads=os.cpu_count()*5,
+#     )
+# # yields = YieldSearch(Path.cwd() / "back_end/python/data/all_wiki.xml", Path.cwd() / "back_end/index", rerun=True, debug=True)
+# print(f"\nResults : {yields.booleanSearch(Question)}")
+# print(f"Yield Executed in {round(time()-start, 1)} secs\n")
 
-# d: && cd TTDS-G35-CW3 && conda activate ttds && scripts\batch\run_back_end.bat
+
+start = time()
+irs = IRSearch(
+    Path.cwd() / "back_end/python/data/wikidata_short.xml", 
+    Path.cwd() / "back_end/indexv2", 
+    rerun=True,
+    threads=os.cpu_count()*5
+    )
+print(f"\nResults : {irs.rankedIR(Question)}")
+print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
+
