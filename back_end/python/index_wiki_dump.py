@@ -22,15 +22,16 @@ STOPWORDS = defaultdict(int)
 WORD_DICT = defaultdict(dict)
 TITLE_DICT = defaultdict(str)
 PATH_TO_STOPWORDS = "./back_end/python/stop_words.txt"
-PATH_TO_CORPUS = sys.argv[1] if Path(sys.argv[1]).is_file() else "./wikidata_short.xml" 
-PATH_TO_IDX = f"./idx_{PATH_TO_CORPUS.split('/')[-1].replace('.', '').replace('/', '').replace('xml', '')}"
+PATH_TO_CORPUS = sys.argv[1] if Path(sys.argv[1]).is_file() else "./wiki-full.xml"
+# PATH_TO_IDX = f"./idx_{PATH_TO_CORPUS.split('/')[-1].replace('.', '').replace('/', '').replace('xml', '')}"
+PATH_TO_IDX = "./idx"
 Path(PATH_TO_IDX).mkdir(parents=True, exist_ok=True)
 
 
 print(f"Indexing {PATH_TO_CORPUS}...")
 
 
-with open(PATH_TO_STOPWORDS, "r", encoding="utf8")  as f:
+with open(PATH_TO_STOPWORDS, "r", encoding="utf8") as f:
     for line in f:
         line = line.strip(" ").strip("\n")
         STOPWORDS[line] = 1
@@ -69,11 +70,11 @@ def create_freq_dict(tokens: list) -> defaultdict[int]:
     token_dict = defaultdict(int)
     for tok in tokens:
         token_dict[tok] += 1
-    return token_dict  
-    
+    return token_dict
 
-def create_title_dict(raw_string: str)-> defaultdict[int]:
-    tokens = re.findall(r'\d+|[\w]+', raw_string.lower())
+
+def create_title_dict(raw_string: str) -> defaultdict[int]:
+    tokens = re.findall(r"\d+|[\w]+", raw_string.lower())
     return create_freq_dict(tokens)
 
 
@@ -94,18 +95,18 @@ def create_link_dict(raw_string: str) -> defaultdict[int]:
 
 def write_title_to_idx(fname: str) -> None:
     global TITLE_DICT, FILE_NUMBER_TITLE, TITLE_OFFSET_FILE
-    with open(f"{PATH_TO_IDX}/{fname}", "w+", encoding="utf8")  as f:
+    with open(f"{PATH_TO_IDX}/{fname}", "w+", encoding="utf8") as f:
         li = sorted(TITLE_DICT.keys())
         TITLE_OFFSET_FILE.write(f"{str(li[0])} {str(FILE_NUMBER_TITLE)}\n")
         for doc_id in li:
             f.write(f"{str(doc_id)}-{str(TITLE_DICT[doc_id])}\n")
 
 
-def create_text_dict(raw_string: str)-> defaultdict[int]:
+def create_text_dict(raw_string: str) -> defaultdict[int]:
     body_text, info_box, category = [], [], []
     raw_string = raw_string.lower()
     ext = create_link_dict(raw_string)
-    txt = raw_string.replace("_"," ").replace(",","").split('\n')
+    txt = raw_string.replace("_", " ").replace(",", "").split("\n")
     length_txt = len(txt)
     line, count, is_body_finished = 0, 0, False
     while line < length_txt:
@@ -116,7 +117,7 @@ def create_text_dict(raw_string: str)-> defaultdict[int]:
             body_text += [line_by_infobox[0]]
             line += 1
             while count >= 1 and line < length_txt:
-                count += txt[line].count("{{")-txt[line].count("}}")
+                count += txt[line].count("{{") - txt[line].count("}}")
                 info_box += [txt[line]]
                 line += 1
         elif not is_body_finished:
@@ -131,7 +132,12 @@ def create_text_dict(raw_string: str)-> defaultdict[int]:
     category = tokenise(" ".join(category))
     body_text = tokenise(" ".join(body_text))
     info_box = tokenise(" ".join(info_box))
-    return create_freq_dict(category), create_freq_dict(body_text), create_freq_dict(info_box), ext
+    return (
+        create_freq_dict(category),
+        create_freq_dict(body_text),
+        create_freq_dict(info_box),
+        ext,
+    )
 
 
 def make_dict(line: str, heap: list, f: TextIOWrapper) -> bool:
@@ -157,13 +163,21 @@ def write_dict(word: str, f: TextIOWrapper) -> None:
 def merge_files():
     global PTR_DICT, SIZE, NUMBER_OF_DOCS
     count = 0
-    f_file = open(f"{PATH_TO_IDX}/file"+str(count), "w+", encoding="utf8")
+    f_file = open(f"{PATH_TO_IDX}/file" + str(count), "w+", encoding="utf8")
     f_offset = open(f"{PATH_TO_IDX}/offset", "w+", encoding="utf8")
     heap = []
-    NUMBER_OF_DOCS = max(max(map(int, filter(str.isdigit, [f[-1] for f in os.listdir(PATH_TO_IDX)]))), NUMBER_OF_DOCS) + 1
+    NUMBER_OF_DOCS = (
+        max(
+            max(
+                map(int, filter(str.isdigit, [f[-1] for f in os.listdir(PATH_TO_IDX)]))
+            ),
+            NUMBER_OF_DOCS,
+        )
+        + 1
+    )
     for n in range(NUMBER_OF_DOCS):
         try:
-            f = open(f"{PATH_TO_IDX}/temp{n}", "r", encoding='utf-8', errors="ignore")
+            f = open(f"{PATH_TO_IDX}/temp{n}", "r", encoding="utf-8", errors="ignore")
         except FileNotFoundError:
             break
         line = f.readline()
@@ -210,11 +224,16 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
         self.title_words = defaultdict(int)
         self.infobox_words = defaultdict(int)
         self.extLinks_words = defaultdict(int)
-    
 
     def create_index(self) -> None:
         global WORDS, TITLE_DICT, FILE_NUMBER, FILE_NUMBER_TITLE
-        title, cat, body, info, ext = self.title_words, self.cat_words, self.body_words, self.infobox_words, self.extLinks_words
+        title, cat, body, info, ext = (
+            self.title_words,
+            self.cat_words,
+            self.body_words,
+            self.infobox_words,
+            self.extLinks_words,
+        )
         all_words = set(title.keys())
         all_words = all_words.union(ext.keys())
         all_words = all_words.union(cat.keys())
@@ -222,7 +241,7 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
         all_words = all_words.union(info.keys())
         for i in all_words:
             WORDS[i][int(self.bufid)] = [title[i], body[i], info[i], cat[i], ext[i]]
-        if self.count > BUFFER_SIZE :
+        if self.count > BUFFER_SIZE:
             write_file_to_idx(f"temp{FILE_NUMBER}")
             self.count = 0
             FILE_NUMBER += 1
@@ -232,7 +251,6 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
             TITLE_DICT = defaultdict(str)
             FILE_NUMBER_TITLE += 1
             self.count_title = 0
-        
 
     def startElement(self, tag, attr) -> None:
         global NUMBER_OF_DOCS
@@ -247,7 +265,6 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
         elif "text" in tag:
             self.text = 1
             self.buftext = ""
-            
 
     def characters(self, data) -> None:
         if self.id == self.page == 1:
@@ -257,8 +274,7 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
             self.buftitle += data
         elif self.text == 1:
             self.buftext += data
-       
-                     
+
     def endElement(self, tag) -> None:
         if "page" in tag:
             self.page = 0
@@ -271,13 +287,18 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
             self.id = 0
         if "text" in tag:
             self.text = 0
-            self.cat_words, self.body_words, self.infobox_words, self.extLinks_words = create_text_dict(self.buftext)
+            (
+                self.cat_words,
+                self.body_words,
+                self.infobox_words,
+                self.extLinks_words,
+            ) = create_text_dict(self.buftext)
             WikipediaDumpContentHandler.create_index(self)
 
 
 def main():
     global TITLE_OFFSET_FILE, PATH_TO_CORPUS
-    TITLE_OFFSET_FILE = open(f"{PATH_TO_IDX}/title_offset", "w+", encoding="utf8") 
+    TITLE_OFFSET_FILE = open(f"{PATH_TO_IDX}/title_offset", "w+", encoding="utf8")
     Parser = xml.sax.make_parser()
     Parser.setFeature(xml.sax.handler.feature_namespaces, 0)
     Parser.setContentHandler(WikipediaDumpContentHandler())
@@ -288,6 +309,7 @@ def main():
     write_title_to_idx(f"title{FILE_NUMBER_TITLE}")
     TITLE_OFFSET_FILE.close()
     merge_files()
+
 
 if __name__ == "__main__":
     start = default_timer()

@@ -3,17 +3,17 @@
 
 import sys
 import math
-import timeit
+from cmath import exp
 from pathlib import Path
 from collections import defaultdict
 from python.index_wiki_dump import remove_stop_words, stem, tokenise
 
-PATH_TO_IDX = sys.argv[1] if Path(sys.argv[1]).is_dir() else "./back_end/python/idx_wikidata_short"
+PATH_TO_IDX = sys.argv[1] if Path(sys.argv[1]).is_dir() else "./back_end/python/idx"
 WORD_LIST = []
 TITLE_LIST = []
 TITLE_DICT = defaultdict(int)
 OPT_DICT = defaultdict(int)
-FIELD_WEIGHTS = {'t': 140, 'i': 80, 'c': 50, 'e': 20}
+FIELD_WEIGHTS = {"t": 140, "i": 80, "c": 50, "e": 20}
 
 
 def load_number_of_docs() -> int:
@@ -23,6 +23,8 @@ def load_number_of_docs() -> int:
         for line in f:
             NUMBER_OF_DOCS = int(line.strip())
             return NUMBER_OF_DOCS
+
+
 NUMBER_OF_DOCS = load_number_of_docs()
 
 
@@ -49,14 +51,14 @@ def load_offsetfile() -> None:
 
 def get_title_number_by(docid: int) -> int:
     global TITLE_DICT, TITLE_LIST
-    high, low, pos = len(TITLE_LIST)-1, 0, 0
+    high, low, pos = len(TITLE_LIST) - 1, 0, 0
 
     while low <= high:
         mid = int((high + low) / 2)
         if int(TITLE_LIST[mid]) == docid:
             return TITLE_DICT[docid]
         elif TITLE_LIST[mid] < docid:
-            pos = mid # ERROR?? moving this really messes with search
+            pos = mid  # ERROR?? moving this really messes with search
             low = mid + 1
         else:
             high = mid - 1
@@ -74,7 +76,7 @@ def get_titles(file_number: int, docid: int) -> str:
 
 def get_file_number_by(word: str) -> int:
     global OPT_DICT, WORD_LIST
-    high, low, pos = len(WORD_LIST)-1, 0, 0
+    high, low, pos = len(WORD_LIST) - 1, 0, 0
 
     while low <= high:
         mid = int((high + low) / 2)
@@ -83,7 +85,7 @@ def get_file_number_by(word: str) -> int:
         elif WORD_LIST[mid] < word:
             low = mid + 1
         else:
-            pos = mid # ERROR?? moving this really messes with search
+            pos = mid  # ERROR?? moving this really messes with search
             high = mid - 1
     return OPT_DICT[WORD_LIST[pos]]
 
@@ -102,15 +104,15 @@ def get_word_from(word: str, file_number: str) -> str:
             line = line.strip().split("/")
 
             if line[0] == word:
-                found_list =  line[1]
+                found_list = line[1]
                 break
     return found_list
 
 
 def get_field_query_dict(query_string: str) -> defaultdict[list]:
-    t, r, b, i, c, e = [""]*6
-    ft, fb, fc, fe, fr, fi = [0]*6
-    val = len(query_string)-1
+    t, r, b, i, c, e = [""] * 6
+    ft, fb, fc, fe, fr, fi = [0] * 6
+    val = len(query_string) - 1
     for first_letter, second_letter in zip(query_string, query_string[1:]):
         two_contig_letters = first_letter + second_letter
         if two_contig_letters == "i:":
@@ -138,7 +140,7 @@ def get_field_query_dict(query_string: str) -> defaultdict[list]:
         r += first_letter if fr == 1 else ""
         i += first_letter if fi == 1 else ""
 
-    l = len(query_string)-1
+    l = len(query_string) - 1
     f_list = [t, b, c, e, r, i]
     for fx_i, fx in enumerate((ft, fb, fc, fe, fr, fi)):
         if fx == 1:
@@ -156,11 +158,11 @@ def rank_simple_query_results(posting_dict: defaultdict[str]) -> defaultdict[flo
 
     for word in posting_dict.keys():
         postlist = posting_dict[word]
-        
+
         if len(postlist):
             postlist = postlist.split(";")
             df = len(postlist)
-            idf = math.log10(10/df)
+            idf = math.log10(10 / df)
 
             for doc in postlist:
                 doc = doc.split("-")
@@ -172,7 +174,9 @@ def rank_simple_query_results(posting_dict: defaultdict[str]) -> defaultdict[flo
     return ranked_list
 
 
-def rank_field_query_results(posting_dict: defaultdict[str], query_dict: defaultdict[str]) -> defaultdict[float]:
+def rank_field_query_results(
+    posting_dict: defaultdict[str], query_dict: defaultdict[str]
+) -> defaultdict[float]:
     global NUMBER_OF_DOCS, FIELD_WEIGHTS
     ranked_list = defaultdict(float)
 
@@ -182,7 +186,7 @@ def rank_field_query_results(posting_dict: defaultdict[str], query_dict: default
         if len(postlist):
             postlist = postlist.split(";")
             df = len(postlist)
-            idf = math.log10(NUMBER_OF_DOCS/df)
+            idf = math.log10(NUMBER_OF_DOCS / df)
 
             for doc in postlist:
                 doc = doc.split("-")
@@ -197,7 +201,7 @@ def rank_field_query_results(posting_dict: defaultdict[str], query_dict: default
 
                 for field in fields_to_match:
                     for l in line:
-                        if field != "b" and field == l[0] :
+                        if field != "b" and field == l[0]:
                             frequency += int(l[1:]) * FIELD_WEIGHTS[l[0]]
 
                 tf = math.log10(1 + frequency)
@@ -205,72 +209,50 @@ def rank_field_query_results(posting_dict: defaultdict[str], query_dict: default
     return ranked_list
 
 
-def simple_query(query: str) -> list:
+def search(query: str) -> list:
     global TITLE_DICT
-    qwords = stem(remove_stop_words(tokenise(query)))
-    posting_dict = defaultdict(list)
-    hits = []
-
-    for word in qwords:
-        file_number = get_file_number_by(word)
-        posting_dict[word] = get_word_from(word, file_number)
-    ranked_docids = rank_simple_query_results(posting_dict)
-
-    if len(ranked_docids):
-        sorted_ranked_docids = sorted(ranked_docids, key=ranked_docids.get, reverse=True)
-        hit_counter, i = 0, 0
-
-        while True:
-            if i>len(sorted_ranked_docids) or hit_counter>10 or i>1000:
-                break
-            try:
-                file_number = get_title_number_by(sorted_ranked_docids[i])
-                hit = get_titles(file_number, sorted_ranked_docids[i]) # broken
-            except IndexError:
-                break
-
-            if hit is not None:
-                hits += [{"title": hit,
-                          "link": f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}",
-                          "description": ""}]
-                # print(f"{hit}\t[http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}]")
-                hit_counter += 1
-            i += 1
+    is_field_search = any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:"))
+    if is_field_search:
+        # field search
+        query_dict = get_field_query_dict(query)
+        qwords = list(query_dict.keys())
     else:
-        print("No Matches Found")
-    return hits
-
-
-def field_query(query: str) -> None:
-    global TITLE_DICT
-    query_dict = get_field_query_dict(query)
-    qwords = list(query_dict.keys())
+        # classic search
+        qwords = stem(remove_stop_words(tokenise(query)))
     posting_dict = defaultdict(list)
     hits = []
 
     for word in qwords:
         file_number = get_file_number_by(word)
         posting_dict[word] = get_word_from(word, file_number)
-    ranked_docids = rank_field_query_results(posting_dict, query_dict)
+    ranked_docids = (
+        rank_field_query_results(posting_dict, query_dict)
+        if is_field_search
+        else rank_simple_query_results(posting_dict)
+    )
 
     if len(ranked_docids):
-        sorted_ranked_docids = sorted(ranked_docids, key=ranked_docids.get, reverse=True)
+        sorted_ranked_docids = sorted(
+            ranked_docids, key=ranked_docids.get, reverse=True
+        )
         hit_counter, i = 0, 0
 
         while True:
-            if i>len(sorted_ranked_docids) or hit_counter>10 or i>1000:
+            if i > len(sorted_ranked_docids) or hit_counter > 10 or i > 1000:
                 break
             try:
                 file_number = get_title_number_by(sorted_ranked_docids[i])
-                hit = get_titles(file_number, sorted_ranked_docids[i]) # broken
+                hit = get_titles(file_number, sorted_ranked_docids[i])  # broken
             except IndexError:
                 break
-
             if hit is not None:
-                hits += [{"title": hit,
-                          "link": f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}",
-                          "description": ""}]
-                # print(f"{hit}\t[http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}]")
+                hits += [
+                    {
+                        "title": hit,
+                        "link": f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}",
+                        "description": "",
+                    }
+                ]
                 hit_counter += 1
             i += 1
     else:
@@ -280,28 +262,7 @@ def field_query(query: str) -> None:
 
 def main() -> None:
     pass
-    # load_offsetfile()
-    # load_titles()
-    # query = "t:Anarchism"
-    # query = query.lower()
-    # print(f"query = {query}")
-    # t:(title) b:(body) i:(infobox) c:category l:(links)
-    # start = timeit.default_timer()
-    # for query in ("t:Hello", "t:Anarchism", "Anarchism"):
-    #     query = query.lower()
-    #     print(f"query = {query}")
-    #     if any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:")):
-    #         print("field_query\n")
-    #         print("\nHits:")
-    #         field_query(query)
-    #     else:
-    #         print("\nsimple_query\n")
-    #         print("\nHits:")
-    #         simple_query(query)
-    # stop = timeit.default_timer()
-    # print ("\ntime :- "+str(stop - start))
+
 
 if __name__ == "__main__":
     main()
-
-# Search via field_query(query) or simple_query(query) 
