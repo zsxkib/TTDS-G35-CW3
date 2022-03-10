@@ -242,7 +242,7 @@ def search(query: str) -> list:
                 break
             try:
                 file_number = get_title_number_by(sorted_ranked_docids[i])
-                hit = get_titles(file_number, sorted_ranked_docids[i])  # broken
+                hit = get_titles(file_number, sorted_ranked_docids[i])  # very slightly broken
             except IndexError:
                 break
             if hit is not None:
