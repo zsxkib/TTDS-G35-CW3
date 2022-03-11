@@ -35,7 +35,16 @@ def search(request):
         query = search_term.lower()
 
         data = search_py.search(query)
-
+        for i, d in enumerate(data):
+            title = d["title"]
+            API_URL = "https://en.wikipedia.org/w/api.php?format=json&origin=*&action=query&prop=extracts&exintro=1&explaintext=1&titles=" + title.replace(" ", "%20")
+            try:
+                response = requests.get(API_URL).json()["query"]["pages"]
+                pid = list(response.keys())[0]
+                data[i]["description"] = response[pid]["extract"]
+            except KeyError:
+                pass
+        
         # query has prefix q: indicating it's a question and there's hits!
         if "Q:" in query[:2] and len(data) > 0:
             query = search_term[2:] + "?"
@@ -48,5 +57,5 @@ def search(request):
         else:
             data = [{"answer": ""}] + data
 
-        print(f"Top 5 Hits = {data[:5]}")
+        # print(f"Top 5 Hits = {data[:5]}")
     return JsonResponse({"0": data}, safe=True, content_type="application/json")

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { useLocation } from 'react-router-dom';
 import { Box } from '@material-ui/core';
-import { IconButton, TextField } from '@material-ui/core';
-import { SearchOutlined } from '@material-ui/icons';
+import { TextField } from '@material-ui/core';
 import logo from '../logo_2.png'
 
 function UsingFetch() {
@@ -27,8 +26,6 @@ function UsingFetch() {
       .then(data => {
         setUsers(data["0"])
       })
-
-
     return false;
   }
 
@@ -70,7 +67,7 @@ function UsingFetch() {
                 <a href={user.link} className="link">
                   <div className="title" >{user.title}</div>
                 </a>
-                {/* <div className="description">users.map(user]{getDescription(user.title)}</div> */}
+                <div className="description">{user.description}</div>
               </Box>
               <Box paddingTop="2%"></Box>
             </div>
