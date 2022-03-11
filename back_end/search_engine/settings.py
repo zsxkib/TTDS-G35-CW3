@@ -140,4 +140,5 @@ CORS_ORIGIN_WHITELIST = [
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000/search/',
     'http://localhost:3000',
+    'https://en.wikipedia.org/',
 ]

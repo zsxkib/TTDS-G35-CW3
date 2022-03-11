@@ -9,22 +9,8 @@ function SearchPage () {
   let navigate = useNavigate()
   const [content, setContent] = useState('');
 
-  // TODO: CHANGE POST TO GET AND OVERWRITE DUMMYDATA IN results.js
-
-  // const handleSubmit = (e) => {
-  //     const requestOptions = {
-  //         method: "POST",
-  //         headers: { "Content-Type": "application/json" },
-  //         body: JSON.stringify({
-  //           searchTerm: content,
-  //         })
-  //       };
-  //     fetch("http://127.0.0.1:8000/search/", requestOptions)
-  //     navigate('./result')
-  // };
-
-const handleSubmit = (e) => {
-  navigate('./result', { state: { searchTerm: content } });
+  const handleSubmit = (e) => {
+    navigate('./result', { state: { searchTerm: content } });
 };
   
   return (
@@ -35,7 +21,11 @@ const handleSubmit = (e) => {
         direction="column"
         className='searchPage'
         style={{minHeight:"100vh"}}>
-          <img src={logo} alt="Logo" className="logo"/>
+          <div style={{textAlign:"center"}}>
+            <a href={window.location.origin}>
+              <img src={logo} alt="Logo" className="logo"/>
+            </a>
+          </div>
           <form className='form' onSubmit={handleSubmit}>
             <TextField
                 id="search-bar"
