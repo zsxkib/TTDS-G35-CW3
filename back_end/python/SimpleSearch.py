@@ -9,6 +9,7 @@
 
 import os
 import re
+import xml
 import json
 import copy
 import shutil
@@ -23,8 +24,9 @@ from sklearn import preprocessing
 from ssh_pymongo import MongoSession
 import xml.etree.ElementTree as ET
 from nltk.stem.porter import PorterStemmer
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
+print("Opened File")
 
 class ClassicSearch:
 
@@ -722,38 +724,20 @@ class YieldSearch:
 
 class IRSearch():
 
-    def __init__(self, datapath, indexpath, rerun=False, threads=4, debug=False):
-        self.datapath = Path(datapath)
+    def __init__(self, indexpath, debug=False):
         self.indexpath = Path(indexpath)
-        self.threads = threads
-        self.rerun = rerun
         self.debug = debug
 
-        self.N = 0
-        for i in self.readPages():
-            self.N += 1
+        with open(self.indexpath / "pids.txt", 'r') as f:
+            self.pids = {}
+            for t in f.read().split('\n'):
+                if t == "": break
+                pid, title = t.split('>')
+                self.pids[pid] = title
         
-        if rerun:
-            print("Deleting Old Data", end="...  ")
-            shutil.rmtree(self.indexpath, True)
-            os.mkdir(self.indexpath)
-            print("Deleted")
+        with open(Path.cwd() / "TTDS" / "stopwords.txt") as f:
+            self.stopwords = f.read().splitlines() 
 
-            with open(Path.cwd() / "python" / "stopwords.txt") as f:
-                self.stopwords = f.read().splitlines() 
-            
-            self.createIndex()
-
-    def readPages(self):
-        page = ""
-        for row in open(self.datapath, 'r', encoding="utf8"):
-            if "<page>" in row:
-                page = row
-            if "<page>" in page:
-                page += row
-            if "</page>" in row:
-                yield page
-                page = ""
 
 
     def textprocessing(self, text, printer=False):
@@ -764,39 +748,39 @@ class IRSearch():
         return terms
 
 
-    def createIndex(self):
-        extract = lambda page : {'pid': int(re.split('<.?id>', page)[1]),  'terms': self.textprocessing(re.sub('&\w*;', '', re.split('<.?text[^>]*>', page)[1]))}
-        
-        def indexpage(page):
-            termerised = extract(page)
-            for term in tqdm(termerised['terms'], leave=False):
-                if os.path.isfile(self.indexpath / term):
-                    with open(self.indexpath / term, 'r') as f:
-                        text = f.read().split(',')
-                else:
-                    text = ['0']
-                with open(self.indexpath / term, 'w') as f:
-                    notfound = True
-                    for i in range(len(text)):
-                        if ':' in text[i]:
-                            pid, num = text[i].split(':')
-                            if int(pid) == termerised['pid']:
-                                text[i] = f"{pid}:{int(num)+1}"
-                                notfound = False
-                    if notfound:
-                        text[0] = str(int(text[0])+1)
-                        text.append(f"{termerised['pid']}:1")
-                    f.write(','.join(text))
-       
-        with ThreadPoolExecutor(max_workers=self.threads) as executor:
-            for page in self.readPages():
-                executor.submit(indexpage, page)
+    def indexPage(self, page):
+
+        if page['pid'] not in self.pids:
+            self.pids[page['pid']] = page['title'].strip()
+            with open(self.indexpath / "pids.txt", 'a') as f:
+                f.write(f"{page['pid']}>{page['title'].strip()}\n")
+
+        for term in self.textprocessing(page['text']):
+            if os.path.isfile(self.indexpath / term):
+                with open(self.indexpath / term, 'r') as f:
+                    text = f.read().split('\n')
+            else:
+                text = ['0']
+            with open(self.indexpath / term, 'w') as f:
+                notfound = True
+                for i in range(len(text)):
+                    if ':' in text[i]:
+                        pid, num = text[i].split(':')
+                        if int(pid) == page['pid']:
+                            text[i] = f"{pid}:{int(num)+1}"
+                            notfound = False
+                if notfound:
+                    text[0] = str(int(text[0])+1)
+                    text.append(f"{page['pid']}:1")
+                f.write('\n'.join(text))
+
 
 
     def rankedIR(self, query):
         print(f'\tRunning Ranked IR with query : {query}.')
+        N = len(self.pids)
 
-        weight = lambda tf, df : (1 + m.log10(tf)) * m.log10(self.N / df)
+        weight = lambda tf, df : (1 + m.log10(tf)) * m.log10(N / df)
 
         queryTerms = self.textprocessing(query, True)
         docScores = {}
@@ -804,7 +788,7 @@ class IRSearch():
         for term in queryTerms:
             if not os.path.isfile(self.indexpath / term): continue
             with open(self.indexpath / term) as f:
-                info = f.read().split(',')
+                info = f.read().split('\n')
                 for page in info[1:]:
                     pid, num = page.split(':')
                     if pid not in docScores:
@@ -812,6 +796,45 @@ class IRSearch():
                     docScores[pid] += weight(int(num), int(info[0]))
                 
         return docScores
+
+
+class wikiHandler(xml.sax.ContentHandler):
+
+    def __init__(self, searchClass):
+        self.tag = ""
+        self.pid = 0
+        self.title = ""
+        self.text = ""
+        self.searcher = searchClass
+        self.executor = ProcessPoolExecutor(max_workers=40)
+        self.progress = tqdm(total=69460785)
+
+    def ended(self):
+        self.progress.close()
+        self.executor.shutdown()
+
+    def startElement(self, tag, attributes):
+        self.tag = tag
+
+    def characters(self, content):
+        if self.tag == "id" and not content.isspace():
+            self.pid = content
+        if self.tag == "title":
+            self.title += content
+        if self.tag == "text":
+            self.text += content
+
+    def endElement(self, tag):
+        self.progress.update(1)
+        if tag == "page":
+            self.executor.submit(self.searcher.indexPage, {"pid":self.pid, "title":self.title, "text":self.text})
+            self.pid = 0
+            self.title = ""
+            self.text = ""
+
+
+
+
 
 # Test Executions ----------------------------------
 
@@ -841,14 +864,19 @@ d = 10
 # print(f"\nResults : {yields.booleanSearch(Question)}")
 # print(f"Yield Executed in {round(time()-start, 1)} secs\n")
 
+irs = IRSearch(
+    Path.cwd() / "TTDS/newIndex", 
+    )
 
 start = time()
-irs = IRSearch(
-    Path.cwd() / "back_end/python/data/wikidata_short.xml", 
-    Path.cwd() / "back_end/indexv2", 
-    rerun=True,
-    threads=os.cpu_count()*5
-    )
+parser = xml.sax.make_parser()  
+parser.setFeature(xml.sax.handler.feature_namespaces, 0)
+handler = wikiHandler(irs)
+parser.setContentHandler(handler)
+
+parser.parse("/storage/teaching/MPhysProject/s1710936/enwiki-20211201-pages-articles-multistream.xml")
+
+
 print(f"\nResults : {irs.rankedIR(Question)}")
 print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
-
+handler.ended()
