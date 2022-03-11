@@ -15,12 +15,11 @@ function UsingFetch() {
     query = state["searchTerm"];
   }
 
-
   const fetchData = (event) => {
     if (event) {
       event.preventDefault();
+      query = event.currentTarget[0].defaultValue
     }
-
     fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query))
       .then(response => {
         return response.json()
@@ -28,6 +27,8 @@ function UsingFetch() {
       .then(data => {
         setUsers(data["0"])
       })
+
+
     return false;
   }
 
@@ -47,13 +48,6 @@ function UsingFetch() {
           value={content}
           onInput={e => setContent(e.target.value)}
           style={{ width: "100%" }}
-          InputProps={{
-            endAdornment: (
-              <IconButton type="submit">
-                <SearchOutlined />
-              </IconButton>
-            ),
-          }}
           variant="outlined"
         />
       </form>
