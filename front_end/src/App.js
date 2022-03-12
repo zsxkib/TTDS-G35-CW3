@@ -1,5 +1,5 @@
 import './App.css';
-import { Routes, Route, Outlet, Link } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import SearchBar from './pages/search';
 import Result from './pages/results'
 

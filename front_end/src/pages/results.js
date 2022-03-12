@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from "react"
 import { useLocation } from 'react-router-dom';
-import { Box } from '@material-ui/core';
-import { TextField } from '@material-ui/core';
-import logo from '../logo_2.png'
+import { Box, Grid, TextField, IconButton, FormControl, NativeSelect, InputLabel } from '@material-ui/core';
+import { SearchOutlined } from '@material-ui/icons';
+import logo from '../logo.png'
 
 function UsingFetch() {
     const [hits, setHits] = useState([])
     const [content, setContent] = useState('');
+    const [hitCounts, setHitCounts] = React.useState('');
+
+    const handleChange = (event) => {
+        setHitCounts(event.target.value);
+    };
 
     let { state } = useLocation();
     let query = content;
@@ -35,7 +40,7 @@ function UsingFetch() {
     }, [])
 
     return (
-        <div className='resultsPage'>
+        <Grid className='resultsPage' style={{ minHeight: "100vh" }}>
             <a href={window.location.origin}>
                 <img src={logo} alt="Logo" className="logo_2" />
             </a>
@@ -46,93 +51,66 @@ function UsingFetch() {
                     value={content}
                     onInput={e => setContent(e.target.value)}
                     style={{ width: "100%" }}
+                    InputProps={{
+                        endAdornment: (
+                          <IconButton type="submit">
+                            <SearchOutlined />
+                          </IconButton>
+                        ),
+                      }}
                     variant="outlined"
                 />
             </form>
-            <p className="note">Note: "t:title" searches for pages with title in the title and "b:body" searches for pages with body in the body</p>
-            <hr class="dashed" />
-            {hits.length > 1 && (
-                <div className='ans-results'>
-                    {hits.slice(0, 1).map(hit => (
-                        <div>
-                            <Box
-                                className="boxes"
-                                border={2}
-                                margin="auto"
-                                borderRadius="6px"
-                                alignContent="center"
-                                width="50%"
-                                borderColor="#9FBBA5"
-                                textAlign="center"
-                                color="#362706"
-                                padding="5px"
-                            >
-                                <div className="title" >Wiki Bot:</div>
-                                <div className="description"><i>{hit.description + "... :)"}</i></div>
-                            </Box>
-                            <Box paddingTop="2%"></Box>
-                        </div>
-                    ))}
-                    {hits.slice(1).map(hit => (
-                        <div>
-                            <Box
-                                className="boxes"
-                                border={2}
-                                margin="auto"
-                                borderRadius="6px"
-                                alignContent="center"
-                                width="50%"
-                                borderColor="#9FBBA5"
-                                color="#362706"
-                                padding="5px"
-                            >
-                                <a href={hit.link} className="link">
-                                    <div className="title" >{hit.title}</div>
-                                    <div className="description">{hit.description}</div>
-                                </a>
-                            </Box>
-                            <Box paddingTop="2%"></Box>
-                        </div>
-                    ))}
-                </div>
-            )}
-            {hits.length == 1 && (
-                <div className='all-results'>
-                    <Box
-                        className="boxes"
-                        border={2}
-                        margin="auto"
-                        borderRadius="6px"
-                        alignContent="center"
-                        width="50%"
-                        borderColor="#9FBBA5"
-                        color="#362706"
-                        padding="5px"
-                    >
-                        <div className="title" >No Matches Found :/</div>
-                    </Box>
-                    <Box paddingTop="2%"></Box>
-                </div>
-            )}
-            {hits.length == 0 && (
-                <div className='all-results'>
-                    <Box
-                        className="boxes"
-                        border={2}
-                        margin="auto"
-                        borderRadius="6px"
-                        alignContent="center"
-                        width="50%"
-                        borderColor="#9FBBA5"
-                        color="#362706"
-                        padding="5px"
-                    >
-                        <div className="title" >Loading...</div>
-                    </Box>
-                    <Box paddingTop="2%"></Box>
-                </div>
-            )}
-        </div>
+            <div className='dropdown'>
+                <FormControl style={{ m: 1, width: "100px" }}>
+                    <InputLabel>Hit Counts</InputLabel>
+                        <NativeSelect
+                            defaultValue={5}
+                            value={hitCounts}
+                            onChange={handleChange}
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={15}>15</option>
+                            <option value={20}>20</option>
+                        </NativeSelect>
+                </FormControl>
+            </div>
+            <p className="note">Note: "t:title" searches for pages with "title" in the title and "b:body" searches for pages with "body" in the body</p>
+            <hr className="dashed" />
+            <div className='all-results'>
+                {hits.length > 1 && (
+                    <div>
+                        {/* {hits.slice(0, 1).map(hit => (
+                            <div>
+                                <Box className="boxes">
+                                    <div className="title" >Wiki Bot:</div>
+                                    <div className="description"><i>{hit.description + "... :)"}</i></div>
+                                </Box>
+                                <Box paddingTop="2%"></Box>
+                            </div>
+                        ))} */}
+                        {hits.slice(1).map(hit => (
+                            <div>
+                                <div className="boxes">
+                                        <a href={hit.link} className="link">
+                                            <div className="title" >{hit.title}</div>
+                                            <div className="description">{hit.description + "..."}</div>
+                                        </a>
+                                </div>
+                                <Box paddingTop="2%"></Box>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {hits.length == 1 && (
+                    <div className="title" >No Matches Found :/</div>
+                )}
+                {hits.length == 0 && (
+                    <div className="title" >Loading...</div>
+                )}
+            </div>
+        </Grid>
     )
 }
 

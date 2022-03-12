@@ -1,9 +1,11 @@
 .searchPage{
-  background-color: #E9E5D6
+  background-color: #E9E5D6;
+  font-family: "Gill Sans", "Gill Sans MT", sans-serif;
 }
 
 .resultsPage{
   background-color: #E9E5D6;
+  font-family: "Gill Sans", "Gill Sans MT", sans-serif;
 }
 
 .logo{
@@ -18,22 +20,28 @@
 }
 
 .logo_2{
-  width: 50%;
+  width: 40%;
   padding-left: 2%;
+  padding-bottom: 2%;
 }
 
 .form_2{
-  width:90%;
+  width:95%;
   padding-left: 2%;
 }
 
 .title{
-  text-align: center;
+  padding: 10px;
   padding-bottom: 2%;
   font-size: 24px;
 }
 
+.description{
+  padding: 10px;
+}
+
 .all-results{
+  width: 100%;
   padding-top: 2%;
   padding-left: 2%;
 }
@@ -43,11 +51,46 @@
   text-decoration: none;
 }
 
-.note{
+.dropdown{
   padding-left: 2%;
-  width:90%;
+  padding-top: 5px;
+  float: left;
+}
+
+.note{
+  position: relative;
+  padding-right: 2%;
+  width: 70%;
+  margin-left: auto; 
+  margin-right: 0;
   text-align: right;
   color: #362706; 
+  
+}
+
+.boxes {
+  --b:3px;   /* thickness of the border */
+  --c:#9FBBA5;   /* color of the border */
+  --w:20px;  /* width of border */
+  
+
+  border:var(--b) solid transparent; /* space for the border */
+  --g:#0000 90deg,var(--c) 0;
+  background:
+    conic-gradient(from 90deg  at top    var(--b) left  var(--b),var(--g)) 0    0,
+    conic-gradient(from 180deg at top    var(--b) right var(--b),var(--g)) 100% 0,
+    conic-gradient(from 0deg   at bottom var(--b) left  var(--b),var(--g)) 0    100%,
+    conic-gradient(from -90deg at bottom var(--b) right var(--b),var(--g)) 100% 100%;
+  background-size:var(--w) var(--w);
+  background-origin:border-box;
+  background-repeat:no-repeat;
+  
+  /*Irrelevant code*/  
+  width: 95%;
+  height: auto;
+  box-sizing:border-box;
+  color: #362706;
+  padding: "5px";
 }
 
 .boxes:hover{
