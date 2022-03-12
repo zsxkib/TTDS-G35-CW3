@@ -238,11 +238,13 @@ def search(query: str) -> list:
         hit_counter, i = 0, 0
 
         while True:
-            if i > len(sorted_ranked_docids) or hit_counter > 10 or i > 1000:
+            if i > len(sorted_ranked_docids) or hit_counter > 30 or i > 1000:
                 break
             try:
                 file_number = get_title_number_by(sorted_ranked_docids[i])
-                hit = get_titles(file_number, sorted_ranked_docids[i])  # very slightly broken
+                hit = get_titles(
+                    file_number, sorted_ranked_docids[i]
+                )  # very slightly broken
             except IndexError:
                 break
             if hit is not None:

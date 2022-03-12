@@ -31,9 +31,6 @@ PATH_TO_IDX = "./idx"
 Path(PATH_TO_IDX).mkdir(parents=True, exist_ok=True)
 
 
-print(f"Indexing {PATH_TO_CORPUS}...")
-
-
 with open(PATH_TO_STOPWORDS, "r", encoding="utf8") as f:
     for line in f:
         line = line.strip(" ").strip("\n")
