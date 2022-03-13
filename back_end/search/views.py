@@ -17,7 +17,9 @@ search_py.load_titles()
 def query_hugging_face(payload, question):
     if question:
         # API_URL = "https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6B"
-        API_URL = "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
+        API_URL = (
+            "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
+        )
     else:
         API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
     API_TOKEN = "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"
@@ -34,15 +36,13 @@ class SearchView(viewsets.ModelViewSet):
 def search(request):
     data = []
     if request.method == "GET":
-        number_hits_wanted = request.GET[
-            "hitcount"
-        ]  # number of hits we want to retrieve
+        number_hits_wanted = request.GET["hitcount"]  # number of hits we want to retrieve
         search_term = request.GET["query"]
         print(f"query = {search_term}")
         data = search_py.search(
             query=search_term.lower(), hits_wanted=int(number_hits_wanted)
         )
-        text_to_summarise = ""
+        text_to_summarise = []
         for i, d in enumerate(data):
             title = d["title"]
             API_URL = (
@@ -53,14 +53,12 @@ def search(request):
                 response = requests.get(API_URL).json()["query"]["pages"]
                 pid = list(response.keys())[0]
                 raw_desc = response[pid]["extract"]
-                text_to_summarise = (
-                    raw_desc if text_to_summarise == "" else text_to_summarise
-                )
-                word_len = 100
+                text_to_summarise += [(data[i]["title"], raw_desc)]
+                desc_len = 100
                 desc_split = raw_desc.split(" ")
                 desc = (
-                    " ".join(desc_split[:word_len])
-                    if len(desc_split) > word_len
+                    " ".join(desc_split[:desc_len])
+                    if len(desc_split) > desc_len
                     else raw_desc
                 )
                 data[i]["description"] = desc
@@ -81,31 +79,37 @@ def search(request):
                 query = query.replace("q:", "").replace("Q:", "").replace("t:", "")
                 query = query + "?" if query[-1] != "?" else query
                 context = ""
-                if len(text_to_summarise):
-                    context += " ".join(text_to_summarise.split(" ")[:1024])
-                prompt = f"Q: {query}\nA:" ""
+
+                # 512 words from top 3 hits as context
+                for _, desc_to_summarise in text_to_summarise[:3]:
+                    if len(desc_to_summarise):
+                        context += " ".join(desc_to_summarise.split(" ")[:512])
+                prompt = f"Q: {query}\nA:"
                 output = query_hugging_face(
                     payload={
                         "question": prompt,
                         "context": context,
-
                     },
                     question=True,
                 )
                 try:
                     score = output["score"]
-                    ans = "Wikibot is {:.2f}% sure of the answer \n".format(score) + prompt + " " + output["answer"]
+                    ans = (
+                        "Wikibot is {:.2f}% sure of the answer \n".format(score)
+                        + prompt
+                        + " "
+                        + output["answer"]
+                    )
                     # ans = ans[len(prompt):]#.split("\n")[0]
                     print(ans)
                 except KeyError:
                     ans = "Sorry, I don't know the answer to that question"
             # ans = ans[len(prompt) :]
             # ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
-
-            elif len(text_to_summarise):
+            elif len(text_to_summarise[0][1]):
                 output = query_hugging_face(
                     payload={
-                        "inputs": " ".join(text_to_summarise.split(" ")[:250]),
+                        "inputs": " ".join(desc_to_summarise.split(" ")[:512]),
                     },
                     question=False,
                 )
