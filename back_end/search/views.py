@@ -33,9 +33,11 @@ class SearchView(viewsets.ModelViewSet):
 def search(request):
     data = []
     if request.method == "GET":
-        search_term = request.GET["query"]
+        number_hits_wanted = request.GET["hitcount"] # number of hits we want to retrieve
+        print(number_hits_wanted)
+        search_term = request.GET["query"] # raw text
         print(f"query = {search_term}")
-        query = search_term.lower()
+        query = search_term.lower() # raw text but lowercase
         text_to_summarise = ""
         data = search_py.search(query)
         for i, d in enumerate(data):
@@ -66,6 +68,7 @@ def search(request):
         # is_question = ("q:" in query[:2].lower() or search_term[-1] == "?") and len(data) > 0
         # if is_question:
         #     query = search_term[2:] + "?" if search_term[-1] != "?" else search_term[2:]
+        #     query = query.replace("q:", "").replace(":", "")
         #     prompt = f"I am a highly intelligent question answering bot. If you ask me a question that is rooted in truth, I will give you the answer. If you ask me a question that is nonsense, trickery, or has no clear answer, I will respond with 'Not sure'.\n\nQ: {query}\nA:"
         #     output = query_hugging_face(
         #         {
@@ -74,8 +77,8 @@ def search(request):
         #         question=True,
         #     )
         #     ans = output[0]["generated_text"]
-        #     ans = ans[ans.index(prompt[-5:]) :]
-        #     ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
+            # ans = ans[ans.index(prompt[-5:]) :]
+            # ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
 
         # if len(text_to_summarise) and not is_question:
         #     output = query_hugging_face(

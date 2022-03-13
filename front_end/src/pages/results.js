@@ -5,9 +5,9 @@ import { SearchOutlined } from '@material-ui/icons';
 import logo from '../logo.png'
 
 function UsingFetch() {
-    const [hits, setHits] = useState([])
+    const [hits, setHits] = useState([]);
     const [content, setContent] = useState('');
-    const [hitCounts, setHitCounts] = React.useState('');
+    const [hitCounts, setHitCounts] = React.useState("5");
 
     const handleChange = (event) => {
         setHitCounts(event.target.value);
@@ -21,11 +21,13 @@ function UsingFetch() {
 
     const fetchData = (event) => {
         if (event) {
-            setHits([])
+            setHits([]);
             event.preventDefault();
-            query = event.currentTarget[0].defaultValue
+            query = event.currentTarget[0].defaultValue;
+            console.log(event.target.value);
         }
-        fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query))
+        console.log(hitCounts)
+        fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query) + "&hitcount=$".replace("$", hitCounts))
             .then(response => {
                 return response.json()
             })
@@ -36,8 +38,8 @@ function UsingFetch() {
     }
 
     useEffect(() => {
-        fetchData()
-    }, [])
+        fetchData();
+    }, []);
 
     return (
         <Grid className='resultsPage' style={{ minHeight: "100vh" }}>
@@ -81,7 +83,7 @@ function UsingFetch() {
             <div className='all-results'>
                 {hits.length > 1 && (
                     <div>
-                        {/* {hits.slice(0, 1).map(hit => (
+                        {hits.slice(0, 1).map(hit => (
                             <div>
                                 <Box className="boxes">
                                     <div className="title" >Wiki Bot:</div>
@@ -89,7 +91,7 @@ function UsingFetch() {
                                 </Box>
                                 <Box paddingTop="2%"></Box>
                             </div>
-                        ))} */}
+                        ))}
                         {hits.slice(1).map(hit => (
                             <div>
                                 <div className="boxes">
