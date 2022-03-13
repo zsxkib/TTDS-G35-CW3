@@ -34,16 +34,17 @@ class SearchView(viewsets.ModelViewSet):
 def search(request):
     data = []
     if request.method == "GET":
-<<<<<<< HEAD
         number_hits_wanted = request.GET["hitcount"]
         search_term = request.GET["query"]
         print(f"query = {search_term}")
         choice = request.GET["choice"]
 
         if choice == "ranked":
-            data = classic.rankedIR(search_term)
+            hits = classic.rankedIR(search_term)
+            data = [{"title":classic.pids[k], "link":f"http://en.wikipedia.org/?curid={k}", "description":""} for k,s in sorted(hits.items(), key=lambda i: i[1])[:number_hits_wanted]]
         elif choice == "rankedbeta":
             data = ranked.rankedIR(search_term)
+            data = [{"title":classic.pids[h], "link":f"http://en.wikipedia.org/?curid={h}", "description":""} for h in sorted(hits.items(), key=lambda i: i[1])[:number_hits_wanted]]
         elif choice == "boolean":
             data = classic.booleanSearch(search_term)
         elif choice == "question":
@@ -55,15 +56,6 @@ def search(request):
             
 
         text_to_summarise = ""
-=======
-        number_hits_wanted = request.GET["hitcount"]  # number of hits we want to retrieve
-        search_term = request.GET["query"]
-        print(f"query = {search_term}")
-        data = search_py.search(
-            query=search_term.lower(), hits_wanted=int(number_hits_wanted)
-        )
-        text_to_summarise = []
->>>>>>> 3532b162d303ff3c8b55e68f77fad0d761799e92
         for i, d in enumerate(data):
             title = d["title"]
             API_URL = (

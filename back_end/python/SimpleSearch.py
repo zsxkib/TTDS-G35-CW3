@@ -254,7 +254,7 @@ class wikiHandler(xml.sax.ContentHandler):
         self.text = ""
         self.searcher = searchClass
         self.executor = ProcessPoolExecutor(max_workers=1)
-        self.progress = tqdm(total=20)
+        self.progress = tqdm(total=70000000)
 
     def ended(self):
         self.progress.close()
@@ -288,22 +288,22 @@ print("Running...")
 start = time()
 
 classic = ClassicSearch(
-    Path.cwd() / "TTDS-G35-CW3/back_end/index/positionalIndex", 
+    Path.cwd() / "TTDS-G35-CW3/back_end/index/positionalIndex/Short", 
     )
 ranked = IRSearch(
-    Path.cwd() / "TTDS-G35-CW3/back_end/index/rankedIndex/Short", 
+    Path.cwd() / "TTDS-G35-CW3/back_end/index/rankedIndex/Index", 
     )
 
-parser = xml.sax.make_parser()  
-parser.setFeature(xml.sax.handler.feature_namespaces, 0)
-handler = wikiHandler(ranked)
-parser.setContentHandler(handler)
+# parser = xml.sax.make_parser()  
+# parser.setFeature(xml.sax.handler.feature_namespaces, 0)
+# handler = wikiHandler(classic)
+# parser.setContentHandler(handler)
 
-parser.parse("/home/dan/TTDS-G35-CW3/back_end/python/data/wikidata_short.xml")
+# parser.parse("/home/dan/wikidata/wiki-full.xml")
 
 Question = "apple"
 
-print(f"\nResults : {classic.booleanSearch(Question)}")
-print(f"\nResults : {ranked.rankedIR(Question)}")
-print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
+print(f"\nResults : {tyclassic.booleanSearch(Question)}")
+# print(f"\nResults : {ranked.rankedIR(Question)}")
+# print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
 # handler.ended()
