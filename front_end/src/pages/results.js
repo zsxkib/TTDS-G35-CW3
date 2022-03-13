@@ -8,10 +8,15 @@ function UsingFetch() {
     const [hits, setHits] = useState([]);
     const [content, setContent] = useState('');
     const [hitCounts, setHitCounts] = useState("5");
+    const [choice, setChoice] = useState("ranked");
     const [aiAns, setAIAns] = useState("... :)");
 
-    const handleChange = (event) => {
+    const handleHitCount = (event) => {
         setHitCounts(event.target.value);
+    };
+
+    const handleChoice = (event) => {
+        setChoice(event.target.value);
     };
 
     let { state } = useLocation();
@@ -26,17 +31,20 @@ function UsingFetch() {
             event.preventDefault();
             query = document.getElementById("search-bar2").value;
         }
-        fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query) + "&hitcount=$".replace("$", hitCounts))
+        fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query)
+            + "&hitcount=$".replace("$", hitCounts)
+            + "&choice=$".replace("$", choice))
             .then(response => {
                 return response.json()
             })
             .then(data => {
                 setHits(data["0"])
             })
-        
+
         setAIAns("")
         fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query)
             + "&hitcount=$".replace("$", hitCounts)
+            + "&choice=$".replace("$", choice)
             + "&question=T" // USE AI
         )
             .then(response => {
@@ -48,22 +56,9 @@ function UsingFetch() {
         return false;
     }
 
-    // const fetchDataAI = () => {
-    //     setHits([]);
-    //     query = document.getElementById("search-bar2").value;
-
-    //     return false;
-    // }
-
     useEffect(() => {
         fetchData();
-        // fetchDataAI();
     }, []);
-
-    // useEffect(() => {
-    //     // fetchData();
-    //     fetchDataAI();
-    // }, []);
 
     return (
         <Grid className='resultsPage' style={{ minHeight: "100vh" }}>
@@ -87,23 +82,41 @@ function UsingFetch() {
                     variant="outlined"
                 />
             </form>
-            <div className='dropdown'>
-                <FormControl style={{ m: 1, width: "100px" }}>
-                    <InputLabel>Hit Counts</InputLabel>
-                    <NativeSelect
-                        defaultValue={5}
-                        value={hitCounts}
-                        onChange={handleChange}
-                    >
-                        <option value={5}>5</option>
-                        <option value={10}>10</option>
-                        <option value={15}>15</option>
-                        <option value={20}>20</option>
-                    </NativeSelect>
-                </FormControl>
-            </div>
+            <div className='dropdown' >
+                <div>
+                    <FormControl style={{ width: "250px"}}>
+                        <InputLabel>Index Choice</InputLabel>
+                        <NativeSelect
+                            defaultValue={"ranked"}
+                            value={choice}
+                            onChange={handleChoice}
+                        >
+                            <option value={"ranked"}>Ranked IR</option>
+                            <option value={"rankedbeta"}>BETA Ranked IR</option>
+                            <option value={"boolean"}>Boolean Search</option>
+                            <option value={"question"}>AI Question Answering</option>
+                            <option value={"vector"}>ML Vector Search</option>
+                        </NativeSelect>
+                    </FormControl>
+                </div>
+                <div>
+                    <FormControl style={{ m: 1, width: "100px" }}>
+                        <InputLabel>Hit Counts</InputLabel>
+                        <NativeSelect
+                            defaultValue={5}
+                            value={hitCounts}
+                            onChange={handleHitCount}
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={15}>15</option>
+                            <option value={20}>20</option>
+                        </NativeSelect>
+                    </FormControl>
+                </div>
             <p className="note">Note: "t:title" searches for pages with "title" in the title and "b:body" searches for pages with "body" in the body</p>
             <hr className="dashed" />
+            </div>
             <div className='all-results'>
                 {hits.length > 1 && (
                     <div>
@@ -116,13 +129,6 @@ function UsingFetch() {
                                 <Box paddingTop="2%"></Box>
                             </div>
                         )}
-                        {/* <div>
-                            <Box className="boxes">
-                                <div className="title" >Wiki Bot:</div>
-                                <div className="description"><i>{aiAns}</i></div>
-                            </Box>
-                            <Box paddingTop="2%"></Box>
-                        </div> */}
                         {hits.slice(1).map(hit => (
                             <div>
                                 <div className="boxes">
