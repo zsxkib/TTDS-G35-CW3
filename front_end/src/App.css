@@ -46,7 +46,7 @@
 }
 
 .animation{
-  width: 100px;
+  height: 50px;
 }
 
 .marquee{
@@ -79,7 +79,7 @@
   display: block;
   margin-left: auto;
   margin-right: auto;
-  width: 100px;
+  width: 80px;
 }
 
 .wiki-bot{

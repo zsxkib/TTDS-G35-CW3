@@ -4,7 +4,6 @@ import { Box, Grid, TextField, IconButton, FormControl, NativeSelect, InputLabel
 import { SearchOutlined } from '@material-ui/icons';
 import logo from '../logo.png'
 import loading from '../loading-buffering.gif'
-import animation from '../animation/1.gif'
 
 function UsingFetch() {
     const [hits, setHits] = useState([]);
@@ -61,6 +60,9 @@ function UsingFetch() {
     useEffect(() => {
         fetchData();
     }, []);
+    
+    var num =  Math.floor(Math.random()*3) + 1;
+    const gif = require( "../animation/" + num.toString() + ".gif");
 
     return (
         <Grid className='resultsPage' style={{ minHeight: "100vh" }}>
@@ -68,7 +70,7 @@ function UsingFetch() {
                 <img src={logo} alt="Logo" className="logo_2" />
             </a>
             <marquee>
-                <img src={animation} className="animation"/>
+                <img src={gif} className="animation"/>
             </marquee>
             <form className='form_2' onSubmit={fetchData} autoComplete="off">
                 <TextField
@@ -88,7 +90,6 @@ function UsingFetch() {
                 />
             </form>
             <div className='dropdown' >
-                {/* <div> */}
                     <FormControl style={{ m: 1, width: "250px" }}>
                         <InputLabel>Index Choice</InputLabel>
                         <NativeSelect
@@ -116,7 +117,6 @@ function UsingFetch() {
                             <option value={20}>20</option>
                         </NativeSelect>
                     </FormControl>
-                {/* </div> */}
             </div>
             <p className="note">Note: "t:title" searches for pages with "title" in the title and "b:body" searches for pages with "body" in the body</p>
             {/* <hr className="dashed" /> */}
@@ -124,7 +124,6 @@ function UsingFetch() {
                 {hits.length > 1 && (
                     <div>
                         {(aiAns !== "") && (
-                            // <div></div>
                             <div>
                                 <Box className="wiki-bot">
                                     <div className="title" ><b><i>Wiki Bot:</i></b></div>
