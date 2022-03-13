@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import re
+from time import sleep
 import requests
 from .models import Search
 import python.search_4 as search_py
 from rest_framework import viewsets
 from django.http import JsonResponse
 from .serializers import SearchSerializer
+from django.utils.datastructures import MultiValueDictKeyError
 
 
 search_py.load_offsetfile()
@@ -33,13 +35,15 @@ class SearchView(viewsets.ModelViewSet):
 def search(request):
     data = []
     if request.method == "GET":
-        number_hits_wanted = request.GET["hitcount"] # number of hits we want to retrieve
-        print(number_hits_wanted)
-        search_term = request.GET["query"] # raw text
+        number_hits_wanted = request.GET[
+            "hitcount"
+        ]  # number of hits we want to retrieve
+        search_term = request.GET["query"]  # raw text
         print(f"query = {search_term}")
-        query = search_term.lower() # raw text but lowercase
+        data = search_py.search(
+            query=search_term.lower(), hits_wanted=int(number_hits_wanted)
+        )
         text_to_summarise = ""
-        data = search_py.search(query)
         for i, d in enumerate(data):
             title = d["title"]
             API_URL = (
@@ -63,32 +67,41 @@ def search(request):
             except KeyError:
                 pass
 
-        # if q: is prefix or ? us last char, then it's a question
         ans = ""
-        # is_question = ("q:" in query[:2].lower() or search_term[-1] == "?") and len(data) > 0
-        # if is_question:
-        #     query = search_term[2:] + "?" if search_term[-1] != "?" else search_term[2:]
-        #     query = query.replace("q:", "").replace(":", "")
-        #     prompt = f"I am a highly intelligent question answering bot. If you ask me a question that is rooted in truth, I will give you the answer. If you ask me a question that is nonsense, trickery, or has no clear answer, I will respond with 'Not sure'.\n\nQ: {query}\nA:"
-        #     output = query_hugging_face(
-        #         {
-        #             "inputs": prompt,
-        #         },
-        #         question=True,
-        #     )
-        #     ans = output[0]["generated_text"]
-            # ans = ans[ans.index(prompt[-5:]) :]
-            # ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
+        try: # QUESTION ANSWERING / SUMMARY
+            _ = request.GET["question"]
+            # if q: is prefix or ? us last char, then it's a question
+            is_question = (
+                "q:" in search_term[:2].lower() or search_term[-1] == "?"
+            ) and len(data) > 0
+            if is_question:
+                query = search_term
+                query = query.replace("q:", "").replace("Q:", "")
+                query = query + "?" if query[-1] != "?" else query
+                prompt = f"""I am a highly intelligent question answering bot. If you ask me a question that is rooted in truth, I will give you the answer. If you ask me a question that is nonsense, trickery, or has no clear answer, I will respond with "Uknown".\n\nQ: {query}\nA:"""
+                output = query_hugging_face(
+                    payload={
+                        "inputs": prompt,
+                    },
+                    question=True,
+                )
+                ans = output[0]["generated_text"]
+                ans = ans[len(prompt) :]
+                ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
 
-        # if len(text_to_summarise) and not is_question:
-        #     output = query_hugging_face(
-        #         {
-        #             "inputs": " ".join(text_to_summarise.split(" ")[:512]),
-        #         },
-        #         question=False,
-        #     )
-        #     print(output)
-        #     ans = "Summary of Top Hit: " + output[0]["summary_text"]
+            elif len(text_to_summarise):
+                output = query_hugging_face(
+                    payload={
+                        "inputs": " ".join(text_to_summarise.split(" ")[:512]),
+                    },
+                    question=False,
+                )
+                print(output[0]["summary_text"])
+                ans = "Summary of Top Hit: " + output[0]["summary_text"]
+            else:
+                pass
+        except MultiValueDictKeyError:
+            pass
         data = [{"title": ans, "description": ans}] + data
 
     return JsonResponse({"0": data}, safe=True, content_type="application/json")

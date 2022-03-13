@@ -209,7 +209,7 @@ def rank_field_query_results(
     return ranked_list
 
 
-def search(query: str) -> list:
+def search(query: str, hits_wanted: int = 5) -> list:
     global TITLE_DICT
     is_field_search = any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:"))
     if is_field_search:
@@ -238,7 +238,7 @@ def search(query: str) -> list:
         hit_counter, i = 0, 0
 
         while True:
-            if i > len(sorted_ranked_docids) or hit_counter > 30 or i > 1000:
+            if i > len(sorted_ranked_docids) or hit_counter > hits_wanted or i > 1000:
                 break
             try:
                 file_number = get_title_number_by(sorted_ranked_docids[i])

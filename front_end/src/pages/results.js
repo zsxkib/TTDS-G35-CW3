@@ -7,7 +7,9 @@ import logo from '../logo.png'
 function UsingFetch() {
     const [hits, setHits] = useState([]);
     const [content, setContent] = useState('');
-    const [hitCounts, setHitCounts] = React.useState("5");
+    const [hitCounts, setHitCounts] = useState("5");
+    const [aiAns, setAIAns] = useState("... :)");
+
 
     const handleChange = (event) => {
         setHitCounts(event.target.value);
@@ -24,9 +26,7 @@ function UsingFetch() {
             setHits([]);
             event.preventDefault();
             query = event.currentTarget[0].defaultValue;
-            console.log(event.target.value);
         }
-        console.log(hitCounts)
         fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query) + "&hitcount=$".replace("$", hitCounts))
             .then(response => {
                 return response.json()
@@ -37,8 +37,28 @@ function UsingFetch() {
         return false;
     }
 
+    const fetchDataAI = (event) => {
+        if (event) {
+            setHits([]);
+            event.preventDefault();
+            query = event.currentTarget[0].defaultValue;
+        }
+        fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query)
+            + "&hitcount=$".replace("$", hitCounts)
+            + "&question=T" // USE AI
+        )
+            .then(response => {
+                return response.json()
+            })
+            .then(data => {
+                setAIAns(data["0"][0]["description"])
+            })
+        return false;
+    }
+
     useEffect(() => {
         fetchData();
+        fetchDataAI();
     }, []);
 
     return (
@@ -55,27 +75,27 @@ function UsingFetch() {
                     style={{ width: "100%" }}
                     InputProps={{
                         endAdornment: (
-                          <IconButton type="submit">
-                            <SearchOutlined />
-                          </IconButton>
+                            <IconButton type="submit">
+                                <SearchOutlined />
+                            </IconButton>
                         ),
-                      }}
+                    }}
                     variant="outlined"
                 />
             </form>
             <div className='dropdown'>
                 <FormControl style={{ m: 1, width: "100px" }}>
                     <InputLabel>Hit Counts</InputLabel>
-                        <NativeSelect
-                            defaultValue={5}
-                            value={hitCounts}
-                            onChange={handleChange}
-                        >
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={15}>15</option>
-                            <option value={20}>20</option>
-                        </NativeSelect>
+                    <NativeSelect
+                        defaultValue={5}
+                        value={hitCounts}
+                        onChange={handleChange}
+                    >
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                        <option value={20}>20</option>
+                    </NativeSelect>
                 </FormControl>
             </div>
             <p className="note">Note: "t:title" searches for pages with "title" in the title and "b:body" searches for pages with "body" in the body</p>
@@ -87,7 +107,8 @@ function UsingFetch() {
                             <div>
                                 <Box className="boxes">
                                     <div className="title" >Wiki Bot:</div>
-                                    <div className="description"><i>{hit.description + "... :)"}</i></div>
+                                    {/* <div className="description"><i>{aiAns}</i></div> */}
+                                    <div className="description"><i>{aiAns}</i></div>
                                 </Box>
                                 <Box paddingTop="2%"></Box>
                             </div>
@@ -95,20 +116,24 @@ function UsingFetch() {
                         {hits.slice(1).map(hit => (
                             <div>
                                 <div className="boxes">
-                                        <a href={hit.link} className="link">
-                                            <div className="title" >{hit.title}</div>
-                                            <div className="description">{hit.description + "..."}</div>
-                                        </a>
+                                    <a href={hit.link} className="link">
+                                        <div className="title" >{hit.title}</div>
+                                        {(() => {
+                                            if (hit.description) {
+                                                return <div className="description">{hit.description + "..."}</div>
+                                            }
+                                        })()}
+                                    </a>
                                 </div>
                                 <Box paddingTop="2%"></Box>
                             </div>
                         ))}
                     </div>
                 )}
-                {hits.length == 1 && (
+                {hits.length === 1 && (
                     <div className="title" >No Matches Found :/</div>
                 )}
-                {hits.length == 0 && (
+                {hits.length === 0 && (
                     <div className="title" >Loading...</div>
                 )}
             </div>
