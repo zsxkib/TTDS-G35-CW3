@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Box, Grid, TextField, IconButton, FormControl, NativeSelect, InputLabel } from '@material-ui/core';
 import { SearchOutlined } from '@material-ui/icons';
 import logo from '../logo.png'
+import loading from '../loading-buffering.gif'
 
 function UsingFetch() {
     const [hits, setHits] = useState([]);
@@ -121,7 +122,7 @@ function UsingFetch() {
                         {(aiAns !== "") && (
                             // <div></div>
                             <div>
-                                <Box className="boxes">
+                                <Box className="wiki-bot">
                                     <div className="title" ><b><i>Wiki Bot:</i></b></div>
                                     <div className="description"><i>{aiAns}</i></div>
                                 </Box>
@@ -149,7 +150,7 @@ function UsingFetch() {
                     <div className="title" >No Matches Found :/</div>
                 )}
                 {hits.length === 0 && (
-                    <div className="title" >Loading...</div>
+                    <img src={loading} className='loading' alt="Loading..." />
                 )}
             </div>
         </Grid>

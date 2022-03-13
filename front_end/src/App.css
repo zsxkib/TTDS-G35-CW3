@@ -68,6 +68,21 @@
   
 }
 
+.loading{
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100px;
+}
+
+.wiki-bot{
+  width: 95%;
+  height: auto;
+  box-sizing:border-box;
+  color: #362706;
+  padding: "5px";
+}
+
 .boxes {
   --b:3px;   /* thickness of the border */
   --c:#9FBBA5;   /* color of the border */
@@ -85,7 +100,7 @@
   background-origin:border-box;
   background-repeat:no-repeat;
   
-  /*Irrelevant code*/  
+  /*content*/
   width: 95%;
   height: auto;
   box-sizing:border-box;
