@@ -10,7 +10,6 @@ function UsingFetch() {
     const [hitCounts, setHitCounts] = useState("5");
     const [aiAns, setAIAns] = useState("... :)");
 
-
     const handleChange = (event) => {
         setHitCounts(event.target.value);
     };
@@ -25,7 +24,7 @@ function UsingFetch() {
         if (event) {
             setHits([]);
             event.preventDefault();
-            query = event.currentTarget[0].defaultValue;
+            query = document.getElementById("search-bar2").value;
         }
         fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query) + "&hitcount=$".replace("$", hitCounts))
             .then(response => {
@@ -34,15 +33,8 @@ function UsingFetch() {
             .then(data => {
                 setHits(data["0"])
             })
-        return false;
-    }
-
-    const fetchDataAI = (event) => {
-        if (event) {
-            setHits([]);
-            event.preventDefault();
-            query = event.currentTarget[0].defaultValue;
-        }
+        
+        setAIAns("")
         fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query)
             + "&hitcount=$".replace("$", hitCounts)
             + "&question=T" // USE AI
@@ -56,10 +48,22 @@ function UsingFetch() {
         return false;
     }
 
+    // const fetchDataAI = () => {
+    //     setHits([]);
+    //     query = document.getElementById("search-bar2").value;
+
+    //     return false;
+    // }
+
     useEffect(() => {
         fetchData();
-        fetchDataAI();
+        // fetchDataAI();
     }, []);
+
+    // useEffect(() => {
+    //     // fetchData();
+    //     fetchDataAI();
+    // }, []);
 
     return (
         <Grid className='resultsPage' style={{ minHeight: "100vh" }}>
@@ -103,16 +107,22 @@ function UsingFetch() {
             <div className='all-results'>
                 {hits.length > 1 && (
                     <div>
-                        {hits.slice(0, 1).map(hit => (
+                        {(aiAns !== "") && (
                             <div>
                                 <Box className="boxes">
-                                    <div className="title" >Wiki Bot:</div>
-                                    {/* <div className="description"><i>{aiAns}</i></div> */}
+                                    <div className="title" ><b><i>Wiki Bot:</i></b></div>
                                     <div className="description"><i>{aiAns}</i></div>
                                 </Box>
                                 <Box paddingTop="2%"></Box>
                             </div>
-                        ))}
+                        )}
+                        {/* <div>
+                            <Box className="boxes">
+                                <div className="title" >Wiki Bot:</div>
+                                <div className="description"><i>{aiAns}</i></div>
+                            </Box>
+                            <Box paddingTop="2%"></Box>
+                        </div> */}
                         {hits.slice(1).map(hit => (
                             <div>
                                 <div className="boxes">
