@@ -71,7 +71,7 @@ class ClassicSearch:
             store = term[:3]
             if os.path.isfile(self.indexpath / store):
                 with open(self.indexpath / store, 'r') as f:
-                    data = json.load(f.read())
+                    data = json.loads(f.read())
             else:
                 data = {}
             with open(self.indexpath / store, 'w') as f:
@@ -80,7 +80,7 @@ class ClassicSearch:
                 if page["pid"] not in data[term]:
                     data[term][page["pid"]] = []
                 data[term][page["pid"]].append(i+1)
-                f.write(json.dump(data))
+                f.write(json.dumps(data))
 
 
     def index(self, term, pid=None):
@@ -198,7 +198,6 @@ class IRSearch():
 
 
     def indexPage(self, page):
-
         if page['pid'] not in self.pids:
             self.pids[page['pid']] = page['title'].strip()
             with open(self.indexpath / "pids.txt", 'a') as f:
@@ -225,12 +224,11 @@ class IRSearch():
 
 
     def rankedIR(self, query):
-        print(f'\tRunning Ranked IR with query : {query}.')
         N = len(self.pids)
 
         weight = lambda tf, df : (1 + m.log10(tf)) * m.log10(N / df)
 
-        queryTerms = self.textprocessing(query, True)
+        queryTerms = self.textprocessing(query)
         docScores = {}
 
         for term in queryTerms:
@@ -251,22 +249,22 @@ class wikiHandler(xml.sax.ContentHandler):
 
     def __init__(self, searchClass):
         self.tag = ""
-        self.pid = 0
+        self.pid = None
         self.title = ""
         self.text = ""
         self.searcher = searchClass
         self.executor = ProcessPoolExecutor(max_workers=1)
-        self.progress = tqdm(total=69460785)
+        self.progress = tqdm(total=20)
 
     def ended(self):
         self.progress.close()
         self.executor.shutdown()
 
-    def startElement(self, tag):
+    def startElement(self, tag, argument):
         self.tag = tag
 
     def characters(self, content):
-        if self.tag == "id" and not content.isspace():
+        if self.tag == "id" and not content.isspace() and self.pid == None:
             self.pid = content
         if self.tag == "title":
             self.title += content
@@ -277,7 +275,7 @@ class wikiHandler(xml.sax.ContentHandler):
         self.progress.update(1)
         if tag == "page":
             self.executor.submit(self.searcher.indexPage, {"pid":self.pid, "title":self.title, "text":self.text})
-            self.pid = 0
+            self.pid = None
             self.title = ""
             self.text = ""
 
@@ -286,21 +284,26 @@ class wikiHandler(xml.sax.ContentHandler):
 # Test Executions ----------------------------------
 
 
-# print("Running...")
-# start = time()
+print("Running...")
+start = time()
 
-# classic = ClassicSearch(
-#     Path.cwd() / "back_end/python/positionalIndex", 
-#     )
+classic = ClassicSearch(
+    Path.cwd() / "TTDS-G35-CW3/back_end/index/positionalIndex", 
+    )
+ranked = IRSearch(
+    Path.cwd() / "TTDS-G35-CW3/back_end/index/rankedIndex/Short", 
+    )
 
-# parser = xml.sax.make_parser()  
-# parser.setFeature(xml.sax.handler.feature_namespaces, 0)
-# handler = wikiHandler(classic)
-# parser.setContentHandler(handler)
+parser = xml.sax.make_parser()  
+parser.setFeature(xml.sax.handler.feature_namespaces, 0)
+handler = wikiHandler(ranked)
+parser.setContentHandler(handler)
 
-# parser.parse("/storage/teaching/MPhysProject/s1710936/enwiki-20211201-pages-articles-multistream.xml")
+parser.parse("/home/dan/TTDS-G35-CW3/back_end/python/data/wikidata_short.xml")
 
+Question = "apple"
 
-# # print(f"\nResults : {irs.rankedIR(Question)}")
-# print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
+print(f"\nResults : {classic.booleanSearch(Question)}")
+print(f"\nResults : {ranked.rankedIR(Question)}")
+print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
 # handler.ended()
