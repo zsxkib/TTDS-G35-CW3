@@ -211,6 +211,7 @@ def rank_field_query_results(
 
 def search(query: str, hits_wanted: int = 5) -> list:
     global TITLE_DICT
+    query = "t:" + query
     is_field_search = any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:"))
     if is_field_search:
         # field search

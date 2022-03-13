@@ -2,15 +2,22 @@
 # -*- coding: utf-8 -*-
 
 import requests
+import python.search_4 as search_py
 from .models import Search
-from python.SimpleSearch import ClassicSearch, IRSearch
+
+# from python.SimpleSearch import ClassicSearch, IRSearch
 from rest_framework import viewsets
 from django.http import JsonResponse
 from .serializers import SearchSerializer
 from django.utils.datastructures import MultiValueDictKeyError
 
-classic = ClassicSearch("/home/dan/TTDS-G35-CW3/back_end/index/positionalIndex/Short")
-ranked  = IRSearch("/home/dan/TTDS-G35-CW3/back_end/index/rankedIndex/Short")
+
+search_py.load_offsetfile()
+search_py.load_titles()
+
+# classic = ClassicSearch("/home/dan/TTDS-G35-CW3/back_end/index/positionalIndex/Short")
+# ranked  = IRSearch("/home/dan/TTDS-G35-CW3/back_end/index/rankedIndex/Short")
+
 
 def query_hugging_face(payload, question):
     if question:
@@ -39,23 +46,26 @@ def search(request):
         print(f"query = {search_term}")
         choice = request.GET["choice"]
 
-        if choice == "ranked":
-            hits = classic.rankedIR(search_term)
-            data = [{"title":classic.pids[k], "link":f"http://en.wikipedia.org/?curid={k}", "description":""} for k,s in sorted(hits.items(), key=lambda i: i[1])[:number_hits_wanted]]
-        elif choice == "rankedbeta":
-            data = ranked.rankedIR(search_term)
-            data = [{"title":classic.pids[h], "link":f"http://en.wikipedia.org/?curid={h}", "description":""} for h in sorted(hits.items(), key=lambda i: i[1])[:number_hits_wanted]]
-        elif choice == "boolean":
-            data = classic.booleanSearch(search_term)
-        elif choice == "question":
-            pass
-        elif choice == "vector":
-            pass
-        else:
-            data = classic.rankedIR(search_term)
-            
+        # if choice == "ranked":
+        #     hits = classic.rankedIR(search_term)
+        #     data = [{"title":classic.pids[k], "link":f"http://en.wikipedia.org/?curid={k}", "description":""} for k,s in sorted(hits.items(), key=lambda i: i[1])[:number_hits_wanted]]
+        # elif choice == "rankedbeta":
+        #     data = ranked.rankedIR(search_term)
+        #     data = [{"title":classic.pids[h], "link":f"http://en.wikipedia.org/?curid={h}", "description":""} for h in sorted(hits.items(), key=lambda i: i[1])[:number_hits_wanted]]
+        # elif choice == "boolean":
+        #     data = classic.booleanSearch(search_term)
+        # elif choice == "question":
+        #     pass
+        # elif choice == "vector":
+        #     pass
+        # else:
+        #     data = classic.rankedIR(search_term)
 
-        text_to_summarise = ""
+        data = search_py.search(
+            query=search_term.lower(), hits_wanted=int(number_hits_wanted)
+        )
+        text_to_summarise = []
+
         for i, d in enumerate(data):
             title = d["title"]
             API_URL = (
@@ -92,30 +102,41 @@ def search(request):
                 query = query.replace("q:", "").replace("Q:", "").replace("t:", "")
                 query = query + "?" if query[-1] != "?" else query
                 context = ""
+                abstract = ""
 
                 # 512 words from top 3 hits as context
                 for _, desc_to_summarise in text_to_summarise[:3]:
                     if len(desc_to_summarise):
-                        context += " ".join(desc_to_summarise.split(" ")[:512])
-                prompt = f"Q: {query}\nA:"
-                output = query_hugging_face(
+                        abstract += " ".join(desc_to_summarise.split(" ")[:250])
+                print(abstract +"\n\n")
+                if len(abstract):
+                    prepro = query_hugging_face(
                     payload={
-                        "question": prompt,
-                        "context": context,
+                        "inputs": " ".join(abstract.split(" ")),
+                        "parameters": {"do_sample": False, "min_length": 200},
                     },
-                    question=True,
-                )
-                try:
-                    score = output["score"]
-                    ans = (
-                        "Wikibot is {:.2f}% sure of the answer \n".format(score)
-                        + prompt
-                        + " "
-                        + output["answer"]
+                    question=False,
                     )
-                    # ans = ans[len(prompt):]#.split("\n")[0]
-                    print(ans)
-                except KeyError:
+                    context += prepro[0]["summary_text"]
+                print(context)
+                if len(context):
+                    prompt = f"Q: {query}\nA:" ""
+                    output = query_hugging_face(
+                        payload={
+                            "question": prompt,
+                            "context": context,
+
+                        },
+                        question=True,
+                    )
+                    try:
+                        score = output["score"]
+                        ans = "Wikibot is {:.2f}% sure of the answer \n".format(score) + prompt + " " + output["answer"]
+                        # ans = ans[len(prompt):]#.split("\n")[0]
+                        print(ans)
+                    except KeyError:
+                        ans = "Sorry, I don't know the answer to that question"
+                else:
                     ans = "Sorry, I don't know the answer to that question"
             # ans = ans[len(prompt) :]
             # ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
@@ -135,3 +156,4 @@ def search(request):
         data = [{"title": ans, "description": ans}] + data
 
     return JsonResponse({"0": data}, safe=True, content_type="application/json")
+
