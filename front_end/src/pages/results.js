@@ -4,6 +4,7 @@ import { Box, Grid, TextField, IconButton, FormControl, NativeSelect, InputLabel
 import { SearchOutlined } from '@material-ui/icons';
 import logo from '../logo.png'
 import loading from '../loading-buffering.gif'
+import animation from '../animation/1.gif'
 
 function UsingFetch() {
     const [hits, setHits] = useState([]);
@@ -66,10 +67,13 @@ function UsingFetch() {
             <a href={window.location.origin}>
                 <img src={logo} alt="Logo" className="logo_2" />
             </a>
+            <marquee>
+                <img src={animation} className="animation"/>
+            </marquee>
             <form className='form_2' onSubmit={fetchData} autoComplete="off">
                 <TextField
                     id="search-bar2"
-                    placeholder="Search"
+                    placeholder= {query}
                     value={content}
                     onInput={e => setContent(e.target.value)}
                     style={{ width: "100%" }}
@@ -115,7 +119,7 @@ function UsingFetch() {
                 {/* </div> */}
             </div>
             <p className="note">Note: "t:title" searches for pages with "title" in the title and "b:body" searches for pages with "body" in the body</p>
-            <hr className="dashed" />
+            {/* <hr className="dashed" /> */}
             <div className='all-results'>
                 {hits.length > 1 && (
                     <div>
