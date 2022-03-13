@@ -5,16 +5,14 @@ import re
 from time import sleep
 import requests
 from .models import Search
-import python.search_4 as search_py
+from python.SimpleSearch import ClassicSearch, IRSearch
 from rest_framework import viewsets
 from django.http import JsonResponse
 from .serializers import SearchSerializer
 from django.utils.datastructures import MultiValueDictKeyError
 
-
-search_py.load_offsetfile()
-search_py.load_titles()
-
+classic = ClassicSearch("/home/dan/TTDS-G35-CW3/back_end/index/positionalIndex/Short")
+ranked  = IRSearch("/home/dan/TTDS-G35-CW3/back_end/index/rankedIndex/Short")
 
 def query_hugging_face(payload, question):
     if question:
@@ -35,14 +33,25 @@ class SearchView(viewsets.ModelViewSet):
 def search(request):
     data = []
     if request.method == "GET":
-        number_hits_wanted = request.GET[
-            "hitcount"
-        ]  # number of hits we want to retrieve
+        number_hits_wanted = request.GET["hitcount"]
         search_term = request.GET["query"]
         print(f"query = {search_term}")
-        data = search_py.search(
-            query=search_term.lower(), hits_wanted=int(number_hits_wanted)
-        )
+        choice = request.GET["choice"]
+
+        if choice == "ranked":
+            data = classic.rankedIR(search_term)
+        elif choice == "rankedbeta":
+            data = ranked.rankedIR(search_term)
+        elif choice == "boolean":
+            data = classic.booleanSearch(search_term)
+        elif choice == "question":
+            pass
+        elif choice == "vector":
+            pass
+        else:
+            data = classic.rankedIR(search_term)
+            
+
         text_to_summarise = ""
         for i, d in enumerate(data):
             title = d["title"]
