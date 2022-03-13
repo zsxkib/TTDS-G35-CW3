@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import re
-from time import sleep
 import requests
 from .models import Search
 import python.search_4 as search_py
