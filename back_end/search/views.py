@@ -20,7 +20,7 @@ def query_hugging_face(payload, question):
     if question:
         API_URL = "https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6B"
     else:
-        API_URL = "https://api-inference.huggingface.co/models/google/pegasus-xsum"
+        API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
     API_TOKEN = "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"
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.post(API_URL, headers=headers, json=payload)
@@ -38,7 +38,7 @@ def search(request):
         number_hits_wanted = request.GET[
             "hitcount"
         ]  # number of hits we want to retrieve
-        search_term = request.GET["query"]  # raw text
+        search_term = request.GET["query"]
         print(f"query = {search_term}")
         data = search_py.search(
             query=search_term.lower(), hits_wanted=int(number_hits_wanted)
@@ -54,7 +54,9 @@ def search(request):
                 response = requests.get(API_URL).json()["query"]["pages"]
                 pid = list(response.keys())[0]
                 raw_desc = response[pid]["extract"]
-                text_to_summarise = raw_desc if not i else text_to_summarise
+                text_to_summarise = (
+                    raw_desc if text_to_summarise == "" else text_to_summarise
+                )
                 word_len = 100
                 desc_split = raw_desc.split(" ")
                 desc = (
@@ -68,17 +70,18 @@ def search(request):
                 pass
 
         ans = ""
-        try: # QUESTION ANSWERING / SUMMARY
+        try:  # QUESTION ANSWERING / SUMMARY
             _ = request.GET["question"]
+
             # if q: is prefix or ? us last char, then it's a question
             is_question = (
-                "q:" in search_term[:2].lower() or search_term[-1] == "?"
+                "q:" in search_term[:2].lower() or "?" in search_term[-1]
             ) and len(data) > 0
             if is_question:
                 query = search_term
                 query = query.replace("q:", "").replace("Q:", "")
                 query = query + "?" if query[-1] != "?" else query
-                prompt = f"""I am a highly intelligent question answering bot. If you ask me a question that is rooted in truth, I will give you the answer. If you ask me a question that is nonsense, trickery, or has no clear answer, I will respond with "Uknown".\n\nQ: {query}\nA:"""
+                prompt = f"Q: {query}\nA:" ""
                 output = query_hugging_face(
                     payload={
                         "inputs": prompt,
@@ -86,13 +89,15 @@ def search(request):
                     question=True,
                 )
                 ans = output[0]["generated_text"]
-                ans = ans[len(prompt) :]
-                ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
+                # ans = ans[len(prompt):]#.split("\n")[0]
+                print(ans)
+            # ans = ans[len(prompt) :]
+            # ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
 
             elif len(text_to_summarise):
                 output = query_hugging_face(
                     payload={
-                        "inputs": " ".join(text_to_summarise.split(" ")[:512]),
+                        "inputs": " ".join(text_to_summarise.split(" ")[:250]),
                     },
                     question=False,
                 )
