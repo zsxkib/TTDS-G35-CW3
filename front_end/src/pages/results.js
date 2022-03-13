@@ -83,8 +83,8 @@ function UsingFetch() {
                 />
             </form>
             <div className='dropdown' >
-                <div>
-                    <FormControl style={{ width: "250px"}}>
+                {/* <div> */}
+                    <FormControl style={{ m: 1, width: "250px" }}>
                         <InputLabel>Index Choice</InputLabel>
                         <NativeSelect
                             defaultValue={"ranked"}
@@ -98,8 +98,6 @@ function UsingFetch() {
                             <option value={"vector"}>ML Vector Search</option>
                         </NativeSelect>
                     </FormControl>
-                </div>
-                <div>
                     <FormControl style={{ m: 1, width: "100px" }}>
                         <InputLabel>Hit Counts</InputLabel>
                         <NativeSelect
@@ -113,14 +111,15 @@ function UsingFetch() {
                             <option value={20}>20</option>
                         </NativeSelect>
                     </FormControl>
-                </div>
+                {/* </div> */}
+            </div>
             <p className="note">Note: "t:title" searches for pages with "title" in the title and "b:body" searches for pages with "body" in the body</p>
             <hr className="dashed" />
-            </div>
             <div className='all-results'>
                 {hits.length > 1 && (
                     <div>
                         {(aiAns !== "") && (
+                            // <div></div>
                             <div>
                                 <Box className="boxes">
                                     <div className="title" ><b><i>Wiki Bot:</i></b></div>
