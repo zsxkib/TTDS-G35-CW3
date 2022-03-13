@@ -16,7 +16,8 @@ search_py.load_titles()
 
 def query_hugging_face(payload, question):
     if question:
-        API_URL = "https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6B"
+        # API_URL = "https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6B"
+        API_URL = "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
     else:
         API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
     API_TOKEN = "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"
@@ -77,18 +78,27 @@ def search(request):
             ) and len(data) > 0
             if is_question:
                 query = search_term
-                query = query.replace("q:", "").replace("Q:", "")
+                query = query.replace("q:", "").replace("Q:", "").replace("t:", "")
                 query = query + "?" if query[-1] != "?" else query
+                context = ""
+                if len(text_to_summarise):
+                    context += " ".join(text_to_summarise.split(" ")[:1024])
                 prompt = f"Q: {query}\nA:" ""
                 output = query_hugging_face(
                     payload={
-                        "inputs": prompt,
+                        "question": prompt,
+                        "context": context,
+
                     },
                     question=True,
                 )
-                ans = output[0]["generated_text"]
-                # ans = ans[len(prompt):]#.split("\n")[0]
-                print(ans)
+                try:
+                    score = output["score"]
+                    ans = "Wikibot is {:.2f}% sure of the answer \n".format(score) + prompt + " " + output["answer"]
+                    # ans = ans[len(prompt):]#.split("\n")[0]
+                    print(ans)
+                except KeyError:
+                    ans = "Sorry, I don't know the answer to that question"
             # ans = ans[len(prompt) :]
             # ans = re.search("\nA:(.*)\n|Q:|A:", ans).group(1)
 
