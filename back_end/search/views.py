@@ -62,7 +62,7 @@ def search(request):
         #     data = classic.rankedIR(search_term)
 
         data = search_py.search(
-            query=search_term.lower(), hits_wanted=int(number_hits_wanted)
+            query="t:" + search_term.lower(), hits_wanted=int(number_hits_wanted)
         )
         text_to_summarise = []
 
@@ -87,6 +87,7 @@ def search(request):
                 data[i]["description"] = desc
 
             except KeyError:
+                text_to_summarise += [(data[i]["title"], "")]
                 pass
 
         ans = ""
@@ -108,30 +109,31 @@ def search(request):
                 for _, desc_to_summarise in text_to_summarise[:3]:
                     if len(desc_to_summarise):
                         abstract += " ".join(desc_to_summarise.split(" ")[:250])
-                print(abstract +"\n\n")
+                print(abstract + "\n\n")
                 if len(abstract):
                     prepro = query_hugging_face(
-                    payload={
-                        "inputs": " ".join(abstract.split(" ")),
-                        "parameters": {"do_sample": False, "min_length": 200},
-                    },
-                    question=False,
+                        payload={
+                            "inputs": " ".join(abstract.split(" ")),
+                            "parameters": {"do_sample": False, "min_length": 200},
+                        },
+                        question=False,
                     )
                     context += prepro[0]["summary_text"]
                 print(context)
                 if len(context):
                     prompt = f"Q: {query}\nA:" ""
                     output = query_hugging_face(
-                        payload={
-                            "question": prompt,
-                            "context": context,
-
-                        },
+                        payload={"question": prompt, "context": context,},
                         question=True,
                     )
                     try:
                         score = output["score"]
-                        ans = "Wikibot is {:.2f}% sure of the answer \n".format(score) + prompt + " " + output["answer"]
+                        ans = (
+                            "Wikibot is {:.2f}% sure of the answer \n".format(score)
+                            + prompt
+                            + " "
+                            + output["answer"]
+                        )
                         # ans = ans[len(prompt):]#.split("\n")[0]
                         print(ans)
                     except KeyError:
@@ -143,7 +145,7 @@ def search(request):
             elif len(text_to_summarise[0][1]):
                 output = query_hugging_face(
                     payload={
-                        "inputs": " ".join(desc_to_summarise.split(" ")[:512]),
+                        "inputs": " ".join(text_to_summarise[0][1].split(" ")[:512]),
                     },
                     question=False,
                 )

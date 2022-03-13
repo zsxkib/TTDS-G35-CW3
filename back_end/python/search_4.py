@@ -19,7 +19,7 @@ FIELD_WEIGHTS = {"t": 140, "i": 80, "c": 50, "e": 20}
 def load_number_of_docs() -> int:
     global NUMBER_OF_DOCS
 
-    with open(f"{PATH_TO_IDX}/doc_count.txt", "r") as f:
+    with open(f"{PATH_TO_IDX}/doc_count.txt", "r", encoding="utf8")  as f:
         for line in f:
             NUMBER_OF_DOCS = int(line.strip())
             return NUMBER_OF_DOCS
@@ -31,7 +31,7 @@ NUMBER_OF_DOCS = load_number_of_docs()
 def load_titles() -> None:
     global TITLE_LIST, TITLE_DICT
 
-    with open(f"{PATH_TO_IDX}/title_offset", "r") as f:
+    with open(f"{PATH_TO_IDX}/title_offset", "r", encoding="utf8")  as f:
         for line in f:
             line = line.strip().split()
             k, v = int(line[0].strip()), int(line[1].strip())
@@ -42,7 +42,7 @@ def load_titles() -> None:
 def load_offsetfile() -> None:
     global OPT_DICT, WORD_LIST
 
-    with open(f"{PATH_TO_IDX}/offset", "r") as f:
+    with open(f"{PATH_TO_IDX}/offset", "r", encoding="utf8") as f:
         for line in f:
             k, v = line.strip().split(":")
             OPT_DICT[k] = v
@@ -99,7 +99,7 @@ def create_dict(qdict: defaultdict[list], line: str, val: str) -> defaultdict[li
 
 def get_word_from(word: str, file_number: str) -> str:
     found_list = []
-    with open(f"{PATH_TO_IDX}/file{file_number}", "r") as fp:
+    with open(f"{PATH_TO_IDX}/file{file_number}", "r", encoding="utf8")  as fp:
         for line in fp:
             line = line.strip().split("/")
 
@@ -211,7 +211,7 @@ def rank_field_query_results(
 
 def search(query: str, hits_wanted: int = 5) -> list:
     global TITLE_DICT
-    query = "t:" + query
+    # query = "t:" + query
     is_field_search = any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:"))
     if is_field_search:
         # field search
