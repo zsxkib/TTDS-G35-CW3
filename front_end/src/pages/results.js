@@ -61,7 +61,7 @@ function UsingFetch() {
         fetchData();
     }, []);
     
-    var num =  Math.floor(Math.random()*3) + 1;
+    var num =  Math.floor(Math.random()*5) + 1;
     const gif = require( "../animation/" + num.toString() + ".gif");
 
     return (
@@ -75,7 +75,7 @@ function UsingFetch() {
             <form className='form_2' onSubmit={fetchData} autoComplete="off">
                 <TextField
                     id="search-bar2"
-                    placeholder= {query}
+                    placeholder= {"Search"}
                     value={content}
                     onInput={e => setContent(e.target.value)}
                     style={{ width: "100%" }}
