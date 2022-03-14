@@ -1,11 +1,21 @@
+:root {
+  --main-bg-colour: #E9E5D6;
+  --main-font-colour: #362706;
+  --box-border-colour: #9FBBA5;
+  --box-hover-colour: #D0C7A8;
+  --main-font-family: "Gill Sans", "Gill Sans MT", sans-serif
+}
+
 .searchPage{
-  background-color: #E9E5D6;
-  font-family: "Gill Sans", "Gill Sans MT", sans-serif;
+  background-color: var(--main-bg-colour);
+  font-family: var(--main-font-family);
+  color: var(--main-font-colour)
 }
 
 .resultsPage{
-  background-color: #E9E5D6;
-  font-family: "Gill Sans", "Gill Sans MT", sans-serif;
+  background-color: var(--main-bg-colour);
+  font-family: var(--main-font-family);
+  color: var(--main-font-colour)
 }
 
 .logo{
@@ -22,6 +32,7 @@
 .logo_2{
   width: 30%;
   padding-left: 2%;
+  padding-top: 20px;
 }
 
 .form_2{
@@ -70,9 +81,7 @@
   width: 70%;
   margin-left: auto; 
   margin-right: 0;
-  text-align: right;
-  color: #362706; 
-  
+  text-align: right;  
 }
 
 .loading{
@@ -86,13 +95,12 @@
   width: 95%;
   height: auto;
   box-sizing:border-box;
-  color: #362706;
   padding: "5px";
 }
 
 .boxes {
   --b:3px;   /* thickness of the border */
-  --c:#9FBBA5;   /* color of the border */
+  --c:var(--box-border-colour);   /* colour of the border */
   --w:20px;  /* width of border */
   
 
@@ -111,12 +119,11 @@
   width: 95%;
   height: auto;
   box-sizing:border-box;
-  color: #362706;
   padding: "5px";
 }
 
 .boxes:hover{
-  background-color: #d0c7a8;
+  background-color: var(--box-hover-colour);
 }
 
 .dashed {
