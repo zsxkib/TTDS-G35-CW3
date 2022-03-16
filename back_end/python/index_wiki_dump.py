@@ -25,7 +25,7 @@ STOPWORDS = defaultdict(int)
 WORD_DICT = defaultdict(dict)
 TITLE_DICT = defaultdict(str)
 PATH_TO_STOPWORDS = "./back_end/python/stopwords.txt"
-PATH_TO_CORPUS = sys.argv[1] if Path(sys.argv[1]).is_file() else "./wiki-full.xml"
+PATH_TO_CORPUS = sys.argv[1] if Path(sys.argv[1]).is_file() else "./enwiki-20220301-pages-articles-multistream.xml"
 # PATH_TO_IDX = f"./idx_{PATH_TO_CORPUS.split('/')[-1].replace('.', '').replace('/', '').replace('xml', '')}"
 PATH_TO_IDX = "./idx"
 Path(PATH_TO_IDX).mkdir(parents=True, exist_ok=True)
@@ -166,15 +166,8 @@ def merge_files():
     f_file = open(f"{PATH_TO_IDX}/file" + str(count), "w+", encoding="utf8")
     f_offset = open(f"{PATH_TO_IDX}/offset", "w+", encoding="utf8")
     heap = []
-    NUMBER_OF_DOCS = (
-        max(
-            max(
-                map(int, filter(str.isdigit, [f[-1] for f in os.listdir(PATH_TO_IDX)]))
-            ),
-            NUMBER_OF_DOCS,
-        )
-        + 1
-    )
+    NUMBER_OF_DOCS = max(map(int, filter(str.isdigit, [re.search("\d+", f).group(0) for f in os.listdir(PATH_TO_IDX) if re.search("\d+", f)]))) + 1
+    print(NUMBER_OF_DOCS)
     for n in range(NUMBER_OF_DOCS):
         try:
             f = open(f"{PATH_TO_IDX}/temp{n}", "r", encoding="utf-8", errors="ignore")
