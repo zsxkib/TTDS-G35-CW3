@@ -24,8 +24,12 @@ PTR_DICT = defaultdict(dict)
 STOPWORDS = defaultdict(int)
 WORD_DICT = defaultdict(dict)
 TITLE_DICT = defaultdict(str)
-PATH_TO_STOPWORDS = "./back_end/python/stopwords.txt"
-PATH_TO_CORPUS = sys.argv[1] if Path(sys.argv[1]).is_file() else "./enwiki-20220301-pages-articles-multistream.xml"
+PATH_TO_STOPWORDS = "TTDS-G35-CW3/back_end/python/stopwords.txt"
+PATH_TO_CORPUS = (
+    sys.argv[1]
+    if Path(sys.argv[1]).is_file()
+    else "./enwiki-20220301-pages-articles-multistream.xml"
+)
 # PATH_TO_IDX = f"./idx_{PATH_TO_CORPUS.split('/')[-1].replace('.', '').replace('/', '').replace('xml', '')}"
 PATH_TO_IDX = "./idx"
 Path(PATH_TO_IDX).mkdir(parents=True, exist_ok=True)
@@ -166,8 +170,24 @@ def merge_files():
     f_file = open(f"{PATH_TO_IDX}/file" + str(count), "w+", encoding="utf8")
     f_offset = open(f"{PATH_TO_IDX}/offset", "w+", encoding="utf8")
     heap = []
-    NUMBER_OF_DOCS = max(map(int, filter(str.isdigit, [re.search("\d+", f).group(0) for f in os.listdir(PATH_TO_IDX) if re.search("\d+", f)]))) + 1
-    print(NUMBER_OF_DOCS)
+    NUMBER_OF_DOCS = (
+        max(
+            map(
+                int,
+                filter(
+                    str.isdigit,
+                    [
+                        re.search("\d+", f).group(0)
+                        for f in os.listdir(PATH_TO_IDX)
+                        if re.search("\d+", f)
+                    ],
+                ),
+            )
+        )
+        + 1
+    )
+    # NUMBER_OF_DOCS = 1095
+    print(f"Merging {NUMBER_OF_DOCS}")
     for n in range(NUMBER_OF_DOCS):
         try:
             f = open(f"{PATH_TO_IDX}/temp{n}", "r", encoding="utf-8", errors="ignore")
@@ -190,17 +210,21 @@ def merge_files():
         line = f_ptr.readline()
         while line != "" and make_dict(line, heap, f_ptr):
             line = f_ptr.readline()
-    f_offset.write(f"{word}:{count}\n")
-    f_offset.close()
-    f_file.close()
-    for ptr_dict in PTR_DICT:
-        for word in ptr_dict:
-            for f in ptr_dict[word]:
-                f.close()
-    for ptr_dict in WORD_DICT:
-        for word in ptr_dict:
-            for f in ptr_dict[word]:
-                f.close()
+
+    f.close()
+    f.write(word + ":" + str(count) + "\n")
+    f.close()
+    # f_offset.write(f"{word}:{count}\n")
+    # f_offset.close()
+    # f_file.close()
+    # for ptr_dict in PTR_DICT:
+    #     for word in ptr_dict:
+    #         for f in ptr_dict[word]:
+    #             f.close()
+    # for ptr_dict in WORD_DICT:
+    #     for word in ptr_dict:
+    #         for f in ptr_dict[word]:
+    #             f.close()
 
 
 class WikipediaDumpContentHandler(xml.sax.ContentHandler):
