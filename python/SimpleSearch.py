@@ -7,42 +7,38 @@
 
 # Imports ------------------------------------------
 
-from __future__ import print_function
 import os
 import re
+import xml
 import json
 import math as m
 from time import time
 from tqdm import tqdm
 from pathlib import Path
-from itertools import islice
-from sklearn import preprocessing
-import xml.etree.ElementTree as ET
 from nltk.stem.porter import PorterStemmer
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 
 
-class SimpleSearch:
 
-    def __init__(self, path, preindex=['pos'], rerun=False, quiet=True, threads=1, debug=False):
-        self.path = path                                  # path must not inlclude "./" e.g. Do not use path="./wikidata_short.xml", USE path="wikidata_short.xml"
-        self.rerun = rerun
+class ClassicSearch:
+
+    def __init__(self, indexpath, quiet=True, threads=1, debug=False):
+        self.indexpath = Path(indexpath)
         self.quiet = quiet
         self.errors = {"xml":{}, "index":[]}
         self.threads = threads                          # Multithreaded is only turned on if threads is raised higher than 1
         self.debug = debug
-        self.datapath = Path.cwd() / "python" / "data" / path
-        self.indexpath = lambda label : Path.cwd() / "data" / f"{label}.{path[:-4]}.json"
-        start = time()
-        self.tags, self.xmldata = self.readXML()
-        if self.debug: print(f"Read XML : {time()-start}s")
-        if preindex != [] and type(preindex) == list: self.loadIndexes(preindex)
+        with open("/home/dan/TTDS-G35-CW3/back_end/python/stopwords.txt") as f:
+            self.stopwords = f.read().splitlines() 
 
-    
-    def splitDict(self, data, blocks):
-        size = m.ceil(len(data)/blocks)
-        for i in range(0, len(data), size):
-            yield {k:data[k] for k in islice(iter(data), size)}
+        with open(self.indexpath / "pids.txt", 'r') as f:
+            self.pids = {}
+            for t in f.read().split('\n'):
+                if t == "": break
+                pid, title = t.split('>')
+                self.pids[pid] = title
+
+
 
     def getErrors(self):
         for i, m in self.xmlerrors.items():
@@ -53,252 +49,261 @@ class SimpleSearch:
 #   Preprocessing
 # --------------------------------------------------
 
-    def readXML(self):
-        print(f"\nReading XML from {self.datapath}...")
-        tags = {}
-        data = {}
+    def textprocessing(self, text, printer=False):
+        tokens = [word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in self.stopwords]
+        terms  = [PorterStemmer().stem(word) for word in tokens]
 
-        tree = ET.parse(self.datapath)
-        root = tree.getroot()
-        for doc in root:
-            try:
-                tags[doc.find('id').text] = {"title":doc.find('title').text}
-                data[doc.find('id').text] = f"{doc.find('revision').find('text').text}"  
-            except:
-                missing = []
-                for tag in ['text', 'title', 'id']:
-                    if doc.find(tag) == None:
-                        missing.append(tag)
-                    elif doc.find(tag).text == None:
-                        missing.append(tag)
-                    else:
-                        identifier = doc.find(tag).text
-                self.errors["xml"][identifier] = missing
-                if not self.quiet : print(f"XML Error : ID {identifier} Missing Tags -> {missing}")
-        return tags, data
-
-
-    def preprocessing(self, data):
-        print(f"\t- Preprocessing {type(data)}...")
-
-        with open(Path.cwd() / "python" / "stopwords.txt") as f:
-            stopwords = f.read().splitlines() 
-
-        tokens = {pid:[word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in stopwords] for pid, text in tqdm(data.items())}
-        terms  = {pid:[PorterStemmer().stem(word) for word in text] for pid, text in tqdm(tokens.items())}
-        return tokens, terms
-
-
-    def queryprocessing(self, query):
-        data = {"QUERY":query}
-
-        with open(Path.cwd() / "python" / "stopwords.txt") as f:
-            stopwords = f.read().splitlines() 
-
-        tokens = {pid:[word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in stopwords] for pid, text in data.items()}
-        terms  = {pid:[PorterStemmer().stem(word) for word in text] for pid, text in tokens.items()}
-
-        print(f"\t- Queryprocessing : {query} --> {terms['QUERY']}...")
-        return terms["QUERY"]
-
+        if printer: print(f"\t- Queryprocessing : {text} --> {terms}")
+        return terms
 
 
 # --------------------------------------------------
 #   Indexing
 # --------------------------------------------------
 
-    def loadIndexes(self, methods):
-        print("Getting {methods} indexes:") if self.threads == 1 else print("Getting {methods} indexes using {self.threads} as threads:")
-        self.indexes = {method:None for method in methods}
-        start = time()
-        if not os.path.isfile(self.indexpath('preprocess')) or self.rerun:
-            if self.threads == 1:
-                self.tokens, self.terms = self.preprocessing(self.xmldata)
+    def indexPage(self, page):
+        if page['pid'] not in self.pids:
+            self.pids[page['pid']] = page['title'].strip()
+            with open(self.indexpath / "pids.txt", 'a') as f:
+                f.write(f"{page['pid']}>{page['title'].strip()}\n")
+
+        for i, term in enumerate(self.textprocessing(page['text'])):
+            store = term[:3]
+            if os.path.isfile(self.indexpath / store):
+                with open(self.indexpath / store, 'r') as f:
+                    data = json.loads(f.read())
             else:
-                self.tokens, self.terms = {}, {}
-                with ThreadPoolExecutor(max_workers=self.threads) as executor:
-                    for subtokens, subterms in executor.map(self.preprocessing, self.splitDict(self.xmldata, self.threads)):
-                        self.tokens |= subtokens
-                        self.terms  |= subterms
-                    if self.debug: print(self.tokens)
-            with open(self.indexpath('preprocess'), 'w') as f:    
-                f.write(json.dumps([self.tokens, self.terms]))
-        else:
-            with open(self.indexpath('preprocess'), 'r') as f:
-                self.tokens, self.terms = json.loads(f.read())
-        if self.debug: print(f"Preprocess : {time()-start}s")
-
-        start = time()
-        for method in self.indexes.keys():
-            print(f"\t- Getting Index : {method}")
-            if not os.path.isfile(self.indexpath(method)) or self.rerun:
-                self.indexes[method] = self.indexing(method)
-                with open(self.indexpath(method), 'w') as f:    
-                    f.write(json.dumps(self.indexes[method]))
-            else:
-                with open(self.indexpath(method), 'r') as f:
-                    self.indexes[method] = json.loads(f.read())
-        if self.debug: print(f"Indexed : {time()-start}s")
+                data = {}
+            with open(self.indexpath / store, 'w') as f:
+                if term not in data:
+                    data[term] = {}
+                if page["pid"] not in data[term]:
+                    data[term][page["pid"]] = []
+                data[term][page["pid"]].append(i+1)
+                f.write(json.dumps(data))
 
 
-    def indexing(self, method):
-        print("\t\t Indexing working...")
-        if self.threads == 1:
-            index = self.subIndexing(method)
-        else:
-            index = {}
-            with ThreadPoolExecutor(max_workers=self.threads) as executor:
-                for subIndex in executor.map(self.subIndexing, self.splitDict(self.terms, self.threads)):
-                    index |= subIndex[0]
-        return index
-
-
-    def subIndexing(self, method):
-        index = {}
-        for pid in self.terms:
-            if method == 'pos':
-                for i in range(len(self.terms[pid])):
-                    term = self.terms[pid][i]
-                    if term not in index:
-                        index[term] = {}
-                    if pid in index[term]:
-                        index[term][pid].append(i+1)
-                    else:
-                        index[term][pid] = [i+1]
-            elif method == 'seq':
-                index[pid] = [f"{self.terms[pid][i-1]}_{self.terms[pid][i]}" for i in range(1, len(self.terms[pid]))]
-            else:
-                for term in self.terms[pid]:
-                    if term not in index:
-                        index[term] = {}
-                    if method == 'bool':
-                        index[term][pid] = 1
-                    else:
-                        if pid not in index[term]:
-                            index[term][pid] = 0
-                        index[term][pid] += 1
-        return index
+    def index(self, term, pid=None):
+        try:
+            with open(self.indexpath / term[:3], 'r') as f:
+                data = json.loads(f.read())
+                if pid != None:
+                    return data[term][pid]
+                else:
+                    return data[term]
+        except:
+            return {}
 
 
 # --------------------------------------------------
 #   Query Exectution
 # --------------------------------------------------
 
-    def phraseSearch(self, query):
-        print(f'\n\tRunning Phrase Search with query : {query}.')
-        try: index = self.indexes['seq']
-        except: 
-            self.errors['index'].append("Index Error : Sequential index missing for phraseSearch)")
-            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['seq']) )")
-            return "ERROR"
-        processedQuery = self.queryprocessing(query)
-        seqQuery = f"{processedQuery[0]}_{processedQuery[1]}"
-        
-        out = {}
-        for pid in index:
-            for pos in range(len(index[pid])):
-                if index[pid][pos] == seqQuery:
-                    if pid not in out:
-                        out[pid] = []
-                    out[pid].append(pos+1)
-        return out
-
-
     def rankedIR(self, query):
-        print(f'\tRunning Ranked IR with query : {query}.\n')
-        try: index = self.indexes['pos']
-        except: 
-            self.errors['index'].append("Index Error : Positional index missing for rankedIR")
-            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
-            return "ERROR"
-        N = len(self.tags.keys())
+        print(f'\tRunning Ranked IR with query : {query}.')
+        N = len(self.pids)
 
-        tf = lambda term, pid : len(index[term][pid]) 
-        df = lambda term : len(index[term])
+        tf = lambda term, pid : len(self.index(term, pid)) 
+        df = lambda term : len(self.index(term))
         weight = lambda term, pid : (1 + m.log10(tf(term, pid))) * m.log10(N / df(term))
 
-        queryTerms = self.queryprocessing(query)
+        queryTerms = self.textprocessing(query)
         docScores = {}
 
         for term in queryTerms:
-            for pid in index[term]:
+            print(term)
+            for pid in self.index(term):
                 if pid not in docScores:
                     docScores[pid] = 0
+                print("\t", pid)
                 docScores[pid] += weight(term, pid)
-                
         return docScores
 
 
     # Proximity Search Functions -------------------
 
-    def proxRec(self, index, queryTerms, d, absol, out=None):
+    def proxRec(self, queryTerms, d, absol, out=None):
         if queryTerms == []:
             return out
         else:
             term = queryTerms.pop()
-            if term not in index:
-                return {}
             if out == None:
-                return self.proxRec(index, queryTerms, d, absol, index[term])
-            for pid in dict(out):
-                if pid in index[term]:
+                return self.proxRec(queryTerms, d, absol, self.index(term))
+            for pid in out:
+                if pid in self.index(term):
                     for n in list(out[pid]):
-                        if absol and True not in [n+a in index[term][pid] for a in range(-d,d+1) if a != 0]:
+                        if absol and True not in [n+a in self.index(term, pid) for a in range(-d,d+1) if a != 0]:
                             out[pid].remove(n)
-                        if not absol and True not in [n+a in index[term][pid] for a in range(0,d+1) if a != 0]:
+                        if not absol and True not in [n+a in self.index(term, pid) for a in range(0,d+1) if a != 0]:
                             out[pid].remove(n)
-                if pid not in index[term] or out[pid] == []:
+                if pid not in self.index(term) or out[pid] == []:
                     out.pop(pid)
-            return self.proxRec(index, queryTerms, d, absol, out)
+            return self.proxRec(queryTerms, d, absol, out)
 
 
-    def proximitySearch(self, query, distance=1, absol=True):
+    def proximitySearch(self, query, distance=0, absol=True):
         print(f"\n\tRunning Proxmimity Search with query : {query} and allowed distance : {distance}.")
-        try: index = self.indexes['pos']
-        except: 
-            self.errors['index'].append("Index Error : Positional index missing for proximitySearch")
-            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
-            return "ERROR"
 
-        query = self.queryprocessing(query)
+        query = self.textprocessing(query)
         query.reverse()
-        return self.proxRec(index, query, distance, absol)
+        return self.proxRec(query, distance+len(query), absol)
 
 
     # Boolean Search Functions ---------------------
 
-    def getLocations(self, i, index, cmds):
+    def getLocations(self, i, cmds):
         if cmds[i] != 'NOT':
-            return set(self.proxRec(index, self.queryprocessing(cmds[i])[::-1], 1, False).keys())
+            return set(self.proxRec(self.textprocessing(cmds[i])[::-1], 1, False).keys())
         else:
-            return set(self.proxRec(index, self.queryprocessing(cmds[i+1])[::-1], 1, False).keys()).symmetric_difference(set(self.tags.keys()))
+            return set(self.proxRec(self.textprocessing(cmds[i+1])[::-1], 1, False).keys()).symmetric_difference(set(self.tags.keys()))
 
 
     def booleanSearch(self, query):
         print(f'\n\tRunning Boolean Search with query : {query.strip()}.')
-        try: index = self.indexes['pos']
-        except: 
-            self.errors['index'].append("Index Error : Positional index missing for booleanSearch")
-            if not self.quiet: print(self.errors['index'][-1], "(try running : .loadIndexes(['pos']) )")
-            return "ERROR"
-
         cmds = [x[1:-1] if x[0] == '"' else x for x in re.split("( |\\\".*?\\\"|'.*?')", query) if x != '' and x != ' ']
 
-        output = self.getLocations(0, index, cmds)
+        output = self.getLocations(0, cmds)
         for i in range(len(cmds)):
             if cmds[i] == 'AND':
-                output &= self.getLocations(i+1, index, cmds) # Updating Intesect
+                output &= self.getLocations(i+1, cmds) # Updating Intesect
             if cmds[i] == 'OR':
-                output |= self.getLocations(i+1, index, cmds) # Updating Union
+                output |= self.getLocations(i+1, cmds) # Updating Union
         return output
+
+
+
+class IRSearch():
+
+    def __init__(self, indexpath, debug=False):
+        self.indexpath = Path(indexpath)
+        self.debug = debug
+
+        with open(self.indexpath / "pids.txt", 'r') as f:
+            self.pids = {}
+            for t in f.read().split('\n'):
+                if t == "": break
+                pid, title = t.split('>')
+                self.pids[pid] = title
+        
+        with open("/home/dan/TTDS-G35-CW3/back_end/python/stopwords.txt") as f:
+            self.stopwords = f.read().splitlines() 
+
+
+    def textprocessing(self, text, printer=False):
+        tokens = [word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in self.stopwords]
+        terms  = [PorterStemmer().stem(word) for word in tokens]
+
+        if printer: print(f"\t- Queryprocessing : {text} --> {terms}")
+        return terms
+
+
+    def indexPage(self, page):
+        if page['pid'] not in self.pids:
+            self.pids[page['pid']] = page['title'].strip()
+            with open(self.indexpath / "pids.txt", 'a') as f:
+                f.write(f"{page['pid']}>{page['title'].strip()}\n")
+
+        for term in self.textprocessing(page['text']):
+            if os.path.isfile(self.indexpath / term):
+                with open(self.indexpath / term, 'r') as f:
+                    text = f.read().split('\n')
+            else:
+                text = ['0']
+            with open(self.indexpath / term, 'w') as f:
+                notfound = True
+                for i in range(len(text)):
+                    if ':' in text[i]:
+                        pid, num = text[i].split(':')
+                        if pid == page['pid']:
+                            text[i] = f"{pid}:{int(num)+1}"
+                            notfound = False
+                if notfound:
+                    text[0] = str(int(text[0])+1)
+                    text.append(f"{page['pid']}:1")
+                f.write('\n'.join(text))
+
+
+    def rankedIR(self, query):
+        N = len(self.pids)
+
+        weight = lambda tf, df : (1 + m.log10(tf)) * m.log10(N / df)
+
+        queryTerms = self.textprocessing(query)
+        docScores = {}
+
+        for term in queryTerms:
+            if not os.path.isfile(self.indexpath / term): continue
+            with open(self.indexpath / term) as f:
+                info = f.read().split('\n')
+                for page in info[1:]:
+                    pid, num = page.split(':')
+                    if pid not in docScores:
+                        docScores[pid] = 0
+                    docScores[pid] += weight(int(num), int(info[0]))
+                
+        return docScores
+
+
+
+class wikiHandler(xml.sax.ContentHandler):
+
+    def __init__(self, searchClass):
+        self.tag = ""
+        self.pid = None
+        self.title = ""
+        self.text = ""
+        self.searcher = searchClass
+        self.executor = ProcessPoolExecutor(max_workers=1)
+        self.progress = tqdm(total=70000000)
+
+    def ended(self):
+        self.progress.close()
+        self.executor.shutdown()
+
+    def startElement(self, tag, argument):
+        self.tag = tag
+
+    def characters(self, content):
+        if self.tag == "id" and not content.isspace() and self.pid == None:
+            self.pid = content
+        if self.tag == "title":
+            self.title += content
+        if self.tag == "text":
+            self.text += content
+
+    def endElement(self, tag):
+        self.progress.update(1)
+        if tag == "page":
+            self.executor.submit(self.searcher.indexPage, {"pid":self.pid, "title":self.title, "text":self.text})
+            self.pid = None
+            self.title = ""
+            self.text = ""
+
 
 
 # Test Executions ----------------------------------
 
-# print("Running...")
-# start = time()
-# # test = SimpleSearch("test.xml", rerun=True)
-# test = SimpleSearch("wikidata_short.xml", preindex=['pos', 'seq'], rerun=True, debug=False, quiet=False)
-# print(f"\nResults : {test.booleanSearch('aggression AND violence')}")
-# # data = SimpleSearch("data.xml")
-# print(f"\nExecuted in {round(time()-start, 1)} secs")
+
+print("Running...")
+start = time()
+
+classic = ClassicSearch(
+    Path.cwd() / "TTDS-G35-CW3/back_end/index/positionalIndex/Short", 
+    )
+ranked = IRSearch(
+    Path.cwd() / "TTDS-G35-CW3/back_end/index/rankedIndex/Index", 
+    )
+
+# parser = xml.sax.make_parser()  
+# parser.setFeature(xml.sax.handler.feature_namespaces, 0)
+# handler = wikiHandler(classic)
+# parser.setContentHandler(handler)
+
+# parser.parse("/home/dan/wikidata/wiki-full.xml")
+
+Question = "apple"
+
+print(f"\nResults : {tyclassic.booleanSearch(Question)}")
+# print(f"\nResults : {ranked.rankedIR(Question)}")
+# print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
+# handler.ended()

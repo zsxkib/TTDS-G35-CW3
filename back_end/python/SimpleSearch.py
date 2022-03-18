@@ -12,7 +12,7 @@ import re
 import xml
 import json
 import math as m
-from time import time
+from time import sleep, time
 from tqdm import tqdm
 from pathlib import Path
 from nltk.stem.porter import PorterStemmer
@@ -22,27 +22,15 @@ from concurrent.futures import ProcessPoolExecutor
 
 class ClassicSearch:
 
-    def __init__(self, indexpath, quiet=True, threads=1, debug=False):
+    def __init__(self, indexpath):
         self.indexpath = Path(indexpath)
-        self.quiet = quiet
-        self.errors = {"xml":{}, "index":[]}
-        self.threads = threads                          # Multithreaded is only turned on if threads is raised higher than 1
-        self.debug = debug
+
         with open("/home/dan/TTDS-G35-CW3/back_end/python/stopwords.txt") as f:
             self.stopwords = f.read().splitlines() 
 
-        with open(self.indexpath / "pids.txt", 'r') as f:
-            self.pids = {}
-            for t in f.read().split('\n'):
-                if t == "": break
-                pid, title = t.split('>')
-                self.pids[pid] = title
+        with open(self.indexpath / "_pids.json", 'r') as f:
+            self.pids = json.loads(f.read())
 
-
-
-    def getErrors(self):
-        for i, m in self.xmlerrors.items():
-            print(f"XML Error : ID {i} Missing Tags -> {m}")
 
 
 # --------------------------------------------------
@@ -58,30 +46,8 @@ class ClassicSearch:
 
 
 # --------------------------------------------------
-#   Indexing
+#   Index Translation
 # --------------------------------------------------
-
-    def indexPage(self, page):
-        if page['pid'] not in self.pids:
-            self.pids[page['pid']] = page['title'].strip()
-            with open(self.indexpath / "pids.txt", 'a') as f:
-                f.write(f"{page['pid']}>{page['title'].strip()}\n")
-
-        for i, term in enumerate(self.textprocessing(page['text'])):
-            store = term[:3]
-            if os.path.isfile(self.indexpath / store):
-                with open(self.indexpath / store, 'r') as f:
-                    data = json.loads(f.read())
-            else:
-                data = {}
-            with open(self.indexpath / store, 'w') as f:
-                if term not in data:
-                    data[term] = {}
-                if page["pid"] not in data[term]:
-                    data[term][page["pid"]] = []
-                data[term][page["pid"]].append(i+1)
-                f.write(json.dumps(data))
-
 
     def index(self, term, pid=None):
         try:
@@ -174,19 +140,19 @@ class ClassicSearch:
 
 class IRSearch():
 
-    def __init__(self, indexpath, debug=False):
+    def __init__(self, indexpath):
         self.indexpath = Path(indexpath)
-        self.debug = debug
 
-        with open(self.indexpath / "pids.txt", 'r') as f:
+        with open("/home/dan/TTDS-G35-CW3/back_end/python/stopwords.txt") as f:
+            self.stopwords = f.read().splitlines() 
+
+        with open(self.indexpath / "_pids.txt", 'r') as f:
             self.pids = {}
             for t in f.read().split('\n'):
                 if t == "": break
                 pid, title = t.split('>')
                 self.pids[pid] = title
         
-        with open("/home/dan/TTDS-G35-CW3/back_end/python/stopwords.txt") as f:
-            self.stopwords = f.read().splitlines() 
 
 
     def textprocessing(self, text, printer=False):
@@ -195,32 +161,6 @@ class IRSearch():
 
         if printer: print(f"\t- Queryprocessing : {text} --> {terms}")
         return terms
-
-
-    def indexPage(self, page):
-        if page['pid'] not in self.pids:
-            self.pids[page['pid']] = page['title'].strip()
-            with open(self.indexpath / "pids.txt", 'a') as f:
-                f.write(f"{page['pid']}>{page['title'].strip()}\n")
-
-        for term in self.textprocessing(page['text']):
-            if os.path.isfile(self.indexpath / term):
-                with open(self.indexpath / term, 'r') as f:
-                    text = f.read().split('\n')
-            else:
-                text = ['0']
-            with open(self.indexpath / term, 'w') as f:
-                notfound = True
-                for i in range(len(text)):
-                    if ':' in text[i]:
-                        pid, num = text[i].split(':')
-                        if pid == page['pid']:
-                            text[i] = f"{pid}:{int(num)+1}"
-                            notfound = False
-                if notfound:
-                    text[0] = str(int(text[0])+1)
-                    text.append(f"{page['pid']}:1")
-                f.write('\n'.join(text))
 
 
     def rankedIR(self, query):
@@ -245,65 +185,23 @@ class IRSearch():
 
 
 
-class wikiHandler(xml.sax.ContentHandler):
-
-    def __init__(self, searchClass):
-        self.tag = ""
-        self.pid = None
-        self.title = ""
-        self.text = ""
-        self.searcher = searchClass
-        self.executor = ProcessPoolExecutor(max_workers=1)
-        self.progress = tqdm(total=70000000)
-
-    def ended(self):
-        self.progress.close()
-        self.executor.shutdown()
-
-    def startElement(self, tag, argument):
-        self.tag = tag
-
-    def characters(self, content):
-        if self.tag == "id" and not content.isspace() and self.pid == None:
-            self.pid = content
-        if self.tag == "title":
-            self.title += content
-        if self.tag == "text":
-            self.text += content
-
-    def endElement(self, tag):
-        self.progress.update(1)
-        if tag == "page":
-            self.executor.submit(self.searcher.indexPage, {"pid":self.pid, "title":self.title, "text":self.text})
-            self.pid = None
-            self.title = ""
-            self.text = ""
-
-
 
 # Test Executions ----------------------------------
 
 
-print("Running...")
-start = time()
+# print("Running...")
+# start = time()
 
-classic = ClassicSearch(
-    Path.cwd() / "TTDS-G35-CW3/back_end/index/positionalIndex/Short", 
-    )
-ranked = IRSearch(
-    Path.cwd() / "TTDS-G35-CW3/back_end/index/rankedIndex/Index", 
-    )
+# classic = ClassicSearch(
+#     Path.cwd() / "TTDS-G35-CW3/back_end/index/positionalIndex/Index", 
+#     )
+# ranked = IRSearch(
+#     Path.cwd() / "TTDS-G35-CW3/back_end/index/rankedIndex/Index", 
+#     )
 
-# parser = xml.sax.make_parser()  
-# parser.setFeature(xml.sax.handler.feature_namespaces, 0)
-# handler = wikiHandler(classic)
-# parser.setContentHandler(handler)
 
-# parser.parse("/home/dan/wikidata/wiki-full.xml")
+# Question = "orange"
 
-Question = "apple"
-
-print(f"\nResults : {tyclassic.booleanSearch(Question)}")
+# print(f"\nResults : {classic.booleanSearch(Question)}")
 # print(f"\nResults : {ranked.rankedIR(Question)}")
 # print(f"IR Search Executed in {round(time()-start, 1)} secs\n")
-# handler.ended()
