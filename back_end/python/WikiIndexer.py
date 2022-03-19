@@ -11,7 +11,7 @@ import os
 import re
 import sys
 import xml
-import json
+import ujson
 import numpy as np
 from time import time
 from tqdm import tqdm
@@ -37,12 +37,23 @@ class wikiHandler(xml.sax.ContentHandler):
 
         with open(stoppath, 'r') as f:
             self.stopwords = f.read().splitlines() 
-        open(self.indexpath / "_pids.json", "w").close()
+        if os.path.isfile(self.indexpath / "_pids.json"):
+            with open(self.indexpath / "_pids.json", 'r') as f:
+                self.pids = ujson.loads(f.read())
+                # print(self.pids)
+        else:
+            open(self.indexpath / "_pids.json", "w").close()
+
 
 
     def textprocessing(self, text, printer=False):
         tokens = [word.strip() for word in re.split('[^a-zA-Z0-9]', text) if word != '' and word.lower() not in self.stopwords]
-        terms  = [PorterStemmer().stem(word) for word in tokens]
+        terms  = []
+        for word in tokens:
+            try:
+                terms.append(PorterStemmer().stem(word))
+            except:
+                print(f"Porter failed @ {word}")
 
         if printer: print(f"\t- Queryprocessing : {text} --> {terms}")
         return terms
@@ -51,9 +62,9 @@ class wikiHandler(xml.sax.ContentHandler):
     def storeBatch(self):
         print(f"Batch Created {self.pid}")
         with open(self.indexpath / f"{self.pid}.json", "w") as f:
-            f.write(json.dumps(self.batch))
+            f.write(ujson.dumps(self.batch))
         with open(self.indexpath / "_pids.json", "w") as f:
-            f.write(json.dumps(self.pids))
+            f.write(ujson.dumps(self.pids))
         self.batch = {}
 
 
