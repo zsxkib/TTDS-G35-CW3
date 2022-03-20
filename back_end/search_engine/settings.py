@@ -41,9 +41,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'python',
-    'startup',
     'search',
-    
 ]
 
 MIDDLEWARE = [
@@ -134,7 +132,6 @@ CORS_ALLOW_ALL_ORIGINS = True # If this is used then `CORS_ALLOWED_ORIGINS` will
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_WHITELIST = [
      'http://localhost:3000',
-    #  'https://resttesttest.com/'
 ]
 
 CSRF_TRUSTED_ORIGINS = [

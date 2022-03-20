@@ -24,15 +24,14 @@ PTR_DICT = defaultdict(dict)
 STOPWORDS = defaultdict(int)
 WORD_DICT = defaultdict(dict)
 TITLE_DICT = defaultdict(str)
-PATH_TO_STOPWORDS = "TTDS-G35-CW3/back_end/python/stopwords.txt"
+PATH_TO_STOPWORDS = "./back_end/python/stopwords.txt"
 PATH_TO_CORPUS = (
     sys.argv[1]
     if Path(sys.argv[1]).is_file()
-    else "./enwiki-20220301-pages-articles-multistream.xml"
+    else "./back_end/python/data/" + os.listdir("./back_end/python/data")[0]
 )
-# PATH_TO_IDX = f"./idx_{PATH_TO_CORPUS.split('/')[-1].replace('.', '').replace('/', '').replace('xml', '')}"
-PATH_TO_IDX = "./idx"
-Path(PATH_TO_IDX).mkdir(parents=True, exist_ok=True)
+PATH_TO_IDX = "./back_end/python/idx"
+# Path(PATH_TO_IDX).mkdir(parents=True, exist_ok=True)
 
 
 with open(PATH_TO_STOPWORDS, "r", encoding="utf8") as f:
