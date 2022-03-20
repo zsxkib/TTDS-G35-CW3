@@ -2,41 +2,34 @@
 # -*- coding: utf-8 -*-
 
 import requests
-import python.search_4 as search_py
 from .models import Search
-
-# from python.SimpleSearch import ClassicSearch, IRSearch
+import python.search_4 as search_py
 from rest_framework import viewsets
 from django.http import JsonResponse
 from .serializers import SearchSerializer
 from django.utils.datastructures import MultiValueDictKeyError
 
 
-search_py.load_offsetfile()
-search_py.load_titles()
-
+# XXX: ================DAN SEARCH================
+# from python.SimpleSearch import ClassicSearch, IRSearch
 # classic = ClassicSearch("/home/dan/TTDS-G35-CW3/back_end/index/positionalIndex/Short")
 # ranked  = IRSearch("/home/dan/TTDS-G35-CW3/back_end/index/rankedIndex/Short")
 
 
-def query_hugging_face(payload, question):
-    if question:
-        # API_URL = "https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6B"
-        API_URL = (
-            "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
-        )
-    else:
-        API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-    API_TOKEN = "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"
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
+# XXX: ================VECTOR SEARCH================
+# import faiss # TODO: FAISS only works w/ 3.7?? (not 3.9) [pip install faiss-cpu]
+# import pickle 
+# from sentence_transformers import SentenceTransformer # pip install sentence-transformers
+
+# model = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
+# Check if GPU is available and use it
+# if torch.cuda.is_available():
+#     model = model.to(torch.device("cuda"))
+# print(model.device)
 
 
-class SearchView(viewsets.ModelViewSet):
-    serializer_class = SearchSerializer
-    queryset = Search.objects.all()
-
+search_py.load_offsetfile()
+search_py.load_titles()
 
 def search(request):
     data = []
@@ -46,6 +39,7 @@ def search(request):
         print(f"query = {search_term}")
         choice = request.GET["choice"]
 
+        # XXX: ================DAN SEARCH================
         # if choice == "ranked":
         #     hits = classic.rankedIR(search_term)
         #     data = [{"title":classic.pids[k], "link":f"http://en.wikipedia.org/?curid={k}", "description":""} for k,s in sorted(hits.items(), key=lambda i: i[1])[:number_hits_wanted]]
@@ -56,16 +50,37 @@ def search(request):
         #     data = classic.booleanSearch(search_term)
         # elif choice == "question":
         #     pass
-        # elif choice == "vector":
-        #     pass
-        # else:
-        #     data = classic.rankedIR(search_term)
 
+
+        # XXX: ================SEARCH THAT WORKS================
+        # data = []
+        # if choice == "ranked":
         data = search_py.search(
-            query="t:" + search_term.lower(), hits_wanted=int(number_hits_wanted)
+            query=f"t:{search_term.lower()}"\
+                +f" b:{search_term}",
+            hits_wanted=int(number_hits_wanted)
         )
-        text_to_summarise = []
+        # XXX: ================VECTOR SEARCH================
+        # else: # default is vector search, bc its v good
+        #     import os
+        #     print(os.listdir("."))
+        #     with open(r'./back_end/python/vctr_idx/faiss_index5690k.pickle','rb') as infile:
+        #         index = pickle.load(infile)
+        #         index = faiss.deserialize_index(index)
+        #         D, I = vector_search([search_term], model, index, num_results=number_hits_wanted)
+        #         I_list = I.flatten().tolist()
+        #         print(f'L2 distance: {D.flatten().tolist()}\n\nMAG paper IDs: {I_list}')
+        #         for hit_id in I_list:
+        #             if hit_id != -1:
+        #                 data += [
+        #                     {
+        #                         "title": "", # TODO: KENZA PLZ HELP
+        #                         "link": f"http://en.wikipedia.org/?curid={hit_id}",
+        #                         "description": "",
+        #                     }
+        #                 ]
 
+        text_to_summarise = []
         for i, d in enumerate(data):
             title = d["title"]
             API_URL = (
@@ -159,3 +174,21 @@ def search(request):
 
     return JsonResponse({"0": data}, safe=True, content_type="application/json")
 
+
+def query_hugging_face(payload, question):
+    if question:
+        # API_URL = "https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6B"
+        API_URL = (
+            "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
+        )
+    else:
+        API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+    API_TOKEN = "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"
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
+
+
+class SearchView(viewsets.ModelViewSet):
+    serializer_class = SearchSerializer
+    queryset = Search.objects.all()

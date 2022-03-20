@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 import math
 from cmath import exp
@@ -211,7 +212,6 @@ def rank_field_query_results(
 
 def search(query: str, hits_wanted: int = 5) -> list:
     global TITLE_DICT
-    # query = "t:" + query
     is_field_search = any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:"))
     if is_field_search:
         # field search
@@ -248,7 +248,7 @@ def search(query: str, hits_wanted: int = 5) -> list:
                 )  # very slightly broken
             except IndexError:
                 break
-            if hit is not None:
+            if hit is not None and (not any(_ in hit for _ in ("Wikipedia:", "Template:", "Draft:"))):
                 hits += [
                     {
                         "title": hit,

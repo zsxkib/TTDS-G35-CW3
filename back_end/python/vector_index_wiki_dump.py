@@ -135,25 +135,29 @@ class encoder():
         self.count = 0
 
     def perpage(self, text):
+        carry_on_from = 5690880 + 247429
         train_timer = 9984
         f = f"./faiss_index{self.nlist}_{train_timer}_.pickle"
         try:
-            self.pids[text["pid"]] = text["title"]
-            self.partial_ids[text["pid"]] = text["title"]
-            encoding = model.encode(text["text"])
-            self.embeddings.append(encoding)
-            self.partials.append(encoding)
-            self.count += 1
-            if self.count % train_timer == 0:
-                self.partials = np.array([embedding for embedding in self.partials]).astype("float32")
-                self.index.train(self.partials)
-                index = faiss.IndexIDMap(self.index)
-                index.add_with_ids(self.partials, np.array(list(self.partial_ids.keys())).astype('int64'))
-                with open(f, "ab+") as h:
-                    pickle.dump(faiss.serialize_index(index), h)
-                self.partials = []
-                self.partial_ids = {}
-                index.reset()
+            if self.count > carry_on_from:
+                self.pids[text["pid"]] = text["title"]
+                self.partial_ids[text["pid"]] = text["title"]
+                encoding = model.encode(text["text"])
+                self.embeddings.append(encoding)
+                self.partials.append(encoding)
+                self.count += 1
+                if self.count % train_timer == 0:
+                    self.partials = np.array([embedding for embedding in self.partials]).astype("float32")
+                    self.index.train(self.partials)
+                    index = faiss.IndexIDMap(self.index)
+                    index.add_with_ids(self.partials, np.array(list(self.partial_ids.keys())).astype('int64'))
+                    with open(f, "ab+") as h:
+                        pickle.dump(faiss.serialize_index(index), h)
+                    self.partials = []
+                    self.partial_ids = {}
+                    index.reset()
+            else:
+                self.count += 1
         except KeyboardInterrupt:
             sys.exit()
         except Exception as e:
@@ -164,7 +168,7 @@ class encoder():
                     index.reset()
             print(self.count, e)
             pass
-        print(self.count, end="\r")
+        print(self.count if self.count > carry_on_from else f"*{self.count}", end="\r")
 
 worker = encoder()
 parser = xml.sax.make_parser()  
@@ -173,7 +177,7 @@ handler = wikiHandler(worker)
 parser.setContentHandler(handler)
 
 ##### INPUT PATH TO LONG XML!!!!!
-parser.parse("./enwiki-20220301-pages-articles-multistream.xml")
+parser.parse("./data/all_wiki2.xml")
 
 # %%
 # Should the entire thing run properly, try running this to make sure index is 100% correct:
