@@ -189,3 +189,4 @@ back_end/search_engine/__pycache__/__init__.cpython-39.pyc
 back_end/search_engine/__pycache__/settings.cpython-39.pyc
 back_end/startup/__pycache__/__init__.cpython-39.pyc
 back_end/startup/__pycache__/apps.cpython-39.pyc
+back_end/python/vctr_idx/faiss_index_800k_ish.pickle

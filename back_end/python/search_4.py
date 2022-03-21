@@ -249,7 +249,7 @@ def search(query, hits_wanted=5):
             except IndexError:
                 break
             if hit is not None and (not any(_ in hit for _ in ("Wikipedia:", "Template:", "Draft:"))):
-                soup = BeautifulSoup(urllib.request.urlopen(f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}"), "lxml")
+                soup = BeautifulSoup(urllib.request.urlopen(f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}"))
                 page_title = soup.title.string.replace(" - Wikipedia", "")
                 hits += [
                     {

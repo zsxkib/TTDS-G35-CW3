@@ -74,7 +74,7 @@ def search(request):
 
 
         # XXX: ================SEARCH THAT WORKS================
-        # data = []
+        data = []
         if choice == "ranked":
             data = search_py.search(
                 query=f"t:{search_term.lower()}"\
@@ -83,8 +83,9 @@ def search(request):
             )
         # XXX: ================VECTOR SEARCH================
         else: # default is vector search, bc its v good
-            import os
-            print(os.listdir("."))
+            # import os
+            # print(os.listdir("."))
+            # with open(r'.\back_end\python\vctr_idx\faiss_index_800k_ish.pickle','rb') as infile:
             with open(r'.\back_end\python\vctr_idx\faiss_index.pickle','rb') as infile:
                 index = pickle.load(infile)
                 index = faiss.deserialize_index(index)
@@ -93,7 +94,7 @@ def search(request):
                 print(f'L2 distance: {D.flatten().tolist()}\n\nMAG paper IDs: {I_list}')
                 for hit_id in I_list:
                     if hit_id != -1:
-                        soup = BeautifulSoup(urllib.request.urlopen(f"http://en.wikipedia.org/?curid={hit_id}"), "lxml")
+                        soup = BeautifulSoup(urllib.request.urlopen(f"http://en.wikipedia.org/?curid={hit_id}"))
                         page_title = soup.title.string.replace(" - Wikipedia", "")
                         data += [
                             {
