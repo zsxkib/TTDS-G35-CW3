@@ -17,7 +17,7 @@ OPT_DICT = defaultdict(int)
 FIELD_WEIGHTS = {"t": 140, "i": 80, "c": 50, "e": 20}
 
 
-def load_number_of_docs() -> int:
+def load_number_of_docs():
     global NUMBER_OF_DOCS
 
     with open(f"{PATH_TO_IDX}/doc_count.txt", "r", encoding="utf8")  as f:
@@ -29,7 +29,7 @@ def load_number_of_docs() -> int:
 NUMBER_OF_DOCS = load_number_of_docs()
 
 
-def load_titles() -> None:
+def load_titles():
     global TITLE_LIST, TITLE_DICT
 
     with open(f"{PATH_TO_IDX}/title_offset", "r", encoding="utf8")  as f:
@@ -40,7 +40,7 @@ def load_titles() -> None:
     TITLE_LIST = sorted(list(TITLE_DICT.keys()))
 
 
-def load_offsetfile() -> None:
+def load_offsetfile():
     global OPT_DICT, WORD_LIST
 
     with open(f"{PATH_TO_IDX}/offset", "r", encoding="utf8") as f:
@@ -50,7 +50,7 @@ def load_offsetfile() -> None:
     WORD_LIST = sorted(list(OPT_DICT.keys()))
 
 
-def get_title_number_by(docid: int) -> int:
+def get_title_number_by(docid):
     global TITLE_DICT, TITLE_LIST
     high, low, pos = len(TITLE_LIST) - 1, 0, 0
 
@@ -66,7 +66,7 @@ def get_title_number_by(docid: int) -> int:
     return TITLE_DICT[TITLE_LIST[pos]]
 
 
-def get_titles(file_number: int, docid: int) -> str:
+def get_titles(file_number, docid):
     global TITLE_DICT
     with open(f"{PATH_TO_IDX}/title{file_number}", "r", encoding="utf8") as f:
         for line in f:
@@ -75,7 +75,7 @@ def get_titles(file_number: int, docid: int) -> str:
                 return line[1].strip("\n")
 
 
-def get_file_number_by(word: str) -> int:
+def get_file_number_by(word):
     global OPT_DICT, WORD_LIST
     high, low, pos = len(WORD_LIST) - 1, 0, 0
 
@@ -91,14 +91,14 @@ def get_file_number_by(word: str) -> int:
     return OPT_DICT[WORD_LIST[pos]]
 
 
-def create_dict(qdict: defaultdict[list], line: str, val: str) -> defaultdict[list]:
+def create_dict(qdict, line, val):
     line = stem(remove_stop_words(tokenise(line)))
     for l in line:
         qdict[l] += [val]
     return qdict
 
 
-def get_word_from(word: str, file_number: str) -> str:
+def get_word_from(word, file_number):
     found_list = []
     with open(f"{PATH_TO_IDX}/file{file_number}", "r", encoding="utf8")  as fp:
         for line in fp:
@@ -110,7 +110,7 @@ def get_word_from(word: str, file_number: str) -> str:
     return found_list
 
 
-def get_field_query_dict(query_string: str) -> defaultdict[list]:
+def get_field_query_dict(query_string):
     t, r, b, i, c, e = [""] * 6
     ft, fb, fc, fe, fr, fi = [0] * 6
     val = len(query_string) - 1
@@ -153,7 +153,7 @@ def get_field_query_dict(query_string: str) -> defaultdict[list]:
     return qdict
 
 
-def rank_simple_query_results(posting_dict: defaultdict[str]) -> defaultdict[float]:
+def rank_simple_query_results(posting_dict):
     global NUMBER_OF_DOCS
     ranked_list = defaultdict(float)
 
@@ -175,9 +175,7 @@ def rank_simple_query_results(posting_dict: defaultdict[str]) -> defaultdict[flo
     return ranked_list
 
 
-def rank_field_query_results(
-    posting_dict: defaultdict[str], query_dict: defaultdict[str]
-) -> defaultdict[float]:
+def rank_field_query_results(posting_dict, query_dict):
     global NUMBER_OF_DOCS, FIELD_WEIGHTS
     ranked_list = defaultdict(float)
 
@@ -210,7 +208,7 @@ def rank_field_query_results(
     return ranked_list
 
 
-def search(query: str, hits_wanted: int = 5) -> list:
+def search(query, hits_wanted=5):
     global TITLE_DICT
     is_field_search = any(_ in query for _ in ("t:", "b:", "i:", "c:", "e:"))
     if is_field_search:
@@ -263,7 +261,7 @@ def search(query: str, hits_wanted: int = 5) -> list:
     return hits
 
 
-def main() -> None:
+def main():
     pass
 
 
