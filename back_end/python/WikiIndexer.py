@@ -18,6 +18,22 @@ from tqdm import tqdm
 from pathlib import Path
 from nltk.stem.porter import PorterStemmer
 
+class Merger():
+
+    def __init__(self, temppath, indexpath):
+        N = 1
+        self.temppath = temppath
+        self.indexpath = indexpath
+        self.files = {"pids" : open('_pids.txt', 'a')}
+
+        for batch in tqdm(os.listdir(self.temppath)):
+            with open(self.temppath / batch, 'r') as f:
+                data = ujson.loads(f.read())
+            if batch != "_pids.txt":
+                for term, info in tqdm(data.items(), leave=False):
+                    if term[:N] not in self.files.keys():
+                        self.files[term[:N]] = open(self.indexpath / term[:N], 'a')
+
 
 
 class wikiHandler(xml.sax.ContentHandler):
@@ -70,7 +86,7 @@ class wikiHandler(xml.sax.ContentHandler):
 
     def classicIndex(self, page):
         # start = time()
-        if page['pid'] not in self.pids:
+        if int(page['pid']) > 47425605:
             self.pids[page['pid']] = page['title'].strip()
 
             for i, term in enumerate(self.textprocessing(page['text'])):
@@ -148,11 +164,11 @@ start = time()
 
 parser = xml.sax.make_parser()
 parser.setFeature(xml.sax.handler.feature_namespaces, 0)
-handler = wikiHandler("classic", Path(r"D:\Index"), Path(r"D:\TTDS-G35-CW3\back_end\python\stopwords.txt"))
-# handler = wikiHandler("ranked", Path.cwd() / "TTDS-G35-CW3/back_end/index/rankedIndex/Index")
+handler = wikiHandler("classic", Path("D:/Index Electric Boogaloo"), Path("D:/TTDS-G35-CW3/back_end/python/stopwords.txt"))
+# handler = wikiHandler("ranked", Path.cwd() / "TTDS-G35-CW3/back_end/index/rankedIndex/Index Electric Boogaloo")
 parser.setContentHandler(handler)
 
-parser.parse(Path(r"D:\enwiki-20220301-pages-articles-multistream.xml"))
+parser.parse(Path(r"D:\TTDS-G35-CW3-FINAL\back_end\python\data\all_wiki2.xml"))
 handler.storeBatch()
 print(f"Indexing Executed in {round(time()-start, 1)} secs\n")
 # handler.ended()
