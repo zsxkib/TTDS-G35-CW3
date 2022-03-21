@@ -17,19 +17,40 @@ from django.utils.datastructures import MultiValueDictKeyError
 
 
 # XXX: ================VECTOR SEARCH================
-# import faiss # TODO: FAISS only works w/ 3.7?? (not 3.9) [pip install faiss-cpu]
-# import pickle 
-# from sentence_transformers import SentenceTransformer # pip install sentence-transformers
+import faiss # TODO: FAISS only works w/ 3.7?? (not 3.9) [pip install faiss-cpu]
+# Faiss fix: run conda install -c conda-forge pytorch faiss-cpu
+import pickle 
+from sentence_transformers import SentenceTransformer # pip install sentence-transformers
+import urllib
+from bs4 import BeautifulSoup
+import numpy as np
 
-# model = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
+model = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
 # Check if GPU is available and use it
 # if torch.cuda.is_available():
 #     model = model.to(torch.device("cuda"))
-# print(model.device)
+print(model.device)
 
 
 search_py.load_offsetfile()
 search_py.load_titles()
+
+def vector_search(query, model, index, num_results=10):
+    """Tranforms query to vector using a pretrained, sentence-level 
+    DistilBERT model and finds similar vectors using FAISS.
+    Args:
+        query (str): User query that should be more than a sentence long.
+        model (sentence_transformers.SentenceTransformer.SentenceTransformer)
+        index (`numpy.ndarray`): FAISS index that needs to be deserialized.
+        num_results (int): Number of results to return.
+    Returns:
+        D (:obj:`numpy.array` of `float`): Distance between results and query.
+        I (:obj:`numpy.array` of `int`): Paper ID of the results.
+    
+    """
+    vector = model.encode(list(query))
+    D, I = index.search(np.array(vector).astype("float32"), k=num_results)
+    return D, I
 
 def search(request):
     data = []
@@ -54,31 +75,33 @@ def search(request):
 
         # XXX: ================SEARCH THAT WORKS================
         # data = []
-        # if choice == "ranked":
-        data = search_py.search(
-            query=f"t:{search_term.lower()}"\
-                +f" b:{search_term}",
-            hits_wanted=int(number_hits_wanted)
-        )
+        if choice == "ranked":
+            data = search_py.search(
+                query=f"t:{search_term.lower()}"\
+                    +f" b:{search_term}",
+                hits_wanted=int(number_hits_wanted)
+            )
         # XXX: ================VECTOR SEARCH================
-        # else: # default is vector search, bc its v good
-        #     import os
-        #     print(os.listdir("."))
-        #     with open(r'./back_end/python/vctr_idx/faiss_index5690k.pickle','rb') as infile:
-        #         index = pickle.load(infile)
-        #         index = faiss.deserialize_index(index)
-        #         D, I = vector_search([search_term], model, index, num_results=number_hits_wanted)
-        #         I_list = I.flatten().tolist()
-        #         print(f'L2 distance: {D.flatten().tolist()}\n\nMAG paper IDs: {I_list}')
-        #         for hit_id in I_list:
-        #             if hit_id != -1:
-        #                 data += [
-        #                     {
-        #                         "title": "", # TODO: KENZA PLZ HELP
-        #                         "link": f"http://en.wikipedia.org/?curid={hit_id}",
-        #                         "description": "",
-        #                     }
-        #                 ]
+        else: # default is vector search, bc its v good
+            import os
+            print(os.listdir("."))
+            with open(r'.\back_end\python\vctr_idx\faiss_index.pickle','rb') as infile:
+                index = pickle.load(infile)
+                index = faiss.deserialize_index(index)
+                D, I = vector_search([search_term], model, index, num_results=int(number_hits_wanted))
+                I_list = I.flatten().tolist()
+                print(f'L2 distance: {D.flatten().tolist()}\n\nMAG paper IDs: {I_list}')
+                for hit_id in I_list:
+                    if hit_id != -1:
+                        soup = BeautifulSoup(urllib.request.urlopen(f"http://en.wikipedia.org/?curid={hit_id}"), "lxml")
+                        page_title = soup.title.string.replace(" - Wikipedia", "")
+                        data += [
+                            {
+                                "title": page_title.strip(),
+                                "link": f"http://en.wikipedia.org/?curid={hit_id}",
+                                "description": "",
+                            }
+                        ]
 
         text_to_summarise = []
         for i, d in enumerate(data):
@@ -109,14 +132,14 @@ def search(request):
         try:  # QUESTION ANSWERING / SUMMARY
             _ = request.GET["question"]
 
-            # if q: is prefix or ? us last char, then it's a question
+            # if q: is prefix or ? in query, then it's a question
             is_question = (
-                "q:" in search_term[:2].lower() or "?" in search_term[-1]
+                "q:" in search_term[:2].lower() or "?" in search_term
             ) and len(data) > 0
             if is_question:
-                query = search_term
+                query = search_term.strip()
                 query = query.replace("q:", "").replace("Q:", "").replace("t:", "")
-                query = query + "?" if query[-1] != "?" else query
+                query = query + "?" if "?" not in query else query
                 context = ""
                 abstract = ""
 

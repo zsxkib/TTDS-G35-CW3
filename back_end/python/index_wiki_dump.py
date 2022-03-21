@@ -40,20 +40,20 @@ with open(PATH_TO_STOPWORDS, "r", encoding="utf8") as f:
         STOPWORDS[line] = 1
 
 
-def remove_stop_words(tokens: list) -> list:
+def remove_stop_words(tokens):
     return [key for key in tokens if STOPWORDS[key] != 1]
 
 
-def stem(tokens: list) -> list:
+def stem(tokens):
     stemmer = PorterStemmer()
     return [stemmer.stem(data) for data in tokens]
 
 
-def tokenise(raw_string: str) -> list:
+def tokenise(raw_string):
     return re.findall(r"[a-z]+", raw_string)
 
 
-def write_file_to_idx(fname: str) -> None:
+def write_file_to_idx(fname):
     global WORDS
     with open(f"{PATH_TO_IDX}/{fname}", "w+", encoding="utf8") as f:
         for wrd in sorted(WORDS.keys()):
@@ -68,7 +68,7 @@ def write_file_to_idx(fname: str) -> None:
             f.write(f"{s[:-1]}\n")
 
 
-def create_freq_dict(tokens: list) -> defaultdict[int]:
+def create_freq_dict(tokens):
     tokens = stem(remove_stop_words(tokens))
     token_dict = defaultdict(int)
     for tok in tokens:
@@ -76,12 +76,12 @@ def create_freq_dict(tokens: list) -> defaultdict[int]:
     return token_dict
 
 
-def create_title_dict(raw_string: str) -> defaultdict[int]:
+def create_title_dict(raw_string):
     tokens = re.findall(r"\d+|[\w]+", raw_string.lower())
     return create_freq_dict(tokens)
 
 
-def create_link_dict(raw_string: str) -> defaultdict[int]:
+def create_link_dict(raw_string):
     links = []
     split_lines = raw_string.split("==external links==")
     if len(split_lines) >= 2:
@@ -96,7 +96,7 @@ def create_link_dict(raw_string: str) -> defaultdict[int]:
     return create_freq_dict(links)
 
 
-def write_title_to_idx(fname: str) -> None:
+def write_title_to_idx(fname):
     global TITLE_DICT, FILE_NUMBER_TITLE, TITLE_OFFSET_FILE
     with open(f"{PATH_TO_IDX}/{fname}", "w+", encoding="utf8") as f:
         li = sorted(TITLE_DICT.keys())
@@ -105,7 +105,7 @@ def write_title_to_idx(fname: str) -> None:
             f.write(f"{str(doc_id)}-{str(TITLE_DICT[doc_id])}\n")
 
 
-def create_text_dict(raw_string: str) -> defaultdict[int]:
+def create_text_dict(raw_string):
     body_text, info_box, category = [], [], []
     raw_string = raw_string.lower()
     ext = create_link_dict(raw_string)
@@ -143,7 +143,7 @@ def create_text_dict(raw_string: str) -> defaultdict[int]:
     )
 
 
-def make_dict(line: str, heap: list, f: TextIOWrapper) -> bool:
+def make_dict(line, heap, f):
     global WORD_DICT
     line = line.strip().split("/")
     is_first_line_in_word_dict = line[0] in WORD_DICT
@@ -156,7 +156,7 @@ def make_dict(line: str, heap: list, f: TextIOWrapper) -> bool:
     return is_first_line_in_word_dict
 
 
-def write_dict(word: str, f: TextIOWrapper) -> None:
+def write_dict(word, f):
     line = f"{word}/"
     for l in sorted(WORD_DICT[word]):
         line += f"{l}-{WORD_DICT[word][l]};"
@@ -241,7 +241,7 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
         self.infobox_words = defaultdict(int)
         self.extLinks_words = defaultdict(int)
 
-    def create_index(self) -> None:
+    def create_index(self):
         global WORDS, TITLE_DICT, FILE_NUMBER, FILE_NUMBER_TITLE
         title, cat, body, info, ext = (
             self.title_words,
@@ -268,7 +268,7 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
             FILE_NUMBER_TITLE += 1
             self.count_title = 0
 
-    def startElement(self, tag, attr) -> None:
+    def startElement(self, tag, attr):
         global NUMBER_OF_DOCS
         if "id" in tag and not self.page:
             self.bufid = ""
@@ -282,7 +282,7 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
             self.text = 1
             self.buftext = ""
 
-    def characters(self, data) -> None:
+    def characters(self, data):
         if self.id == self.page == 1:
             self.bufid += data
             TITLE_DICT[int(self.bufid)] = self.buftitle
@@ -291,7 +291,7 @@ class WikipediaDumpContentHandler(xml.sax.ContentHandler):
         elif self.text == 1:
             self.buftext += data
 
-    def endElement(self, tag) -> None:
+    def endElement(self, tag):
         if "page" in tag:
             self.page = 0
             self.count += 1
