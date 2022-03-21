@@ -93,7 +93,7 @@ function UsingFetch() {
                 <FormControl style={{ m: 1, width: "250px" }}>
                     <InputLabel>Index Choice</InputLabel>
                     <NativeSelect
-                        defaultValue={"ranked"}
+                        defaultValue={"vector"}
                         value={choice}
                         onChange={handleChoice}
                     >

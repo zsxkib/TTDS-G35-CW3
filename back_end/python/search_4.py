@@ -8,6 +8,8 @@ from cmath import exp
 from pathlib import Path
 from collections import defaultdict
 from python.index_wiki_dump import remove_stop_words, stem, tokenise
+from bs4 import BeautifulSoup
+import urllib
 
 PATH_TO_IDX = sys.argv[1] if Path(sys.argv[1]).is_dir() else "./back_end/python/idx"
 WORD_LIST = []
@@ -247,9 +249,11 @@ def search(query, hits_wanted=5):
             except IndexError:
                 break
             if hit is not None and (not any(_ in hit for _ in ("Wikipedia:", "Template:", "Draft:"))):
+                soup = BeautifulSoup(urllib.request.urlopen(f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}"), "lxml")
+                page_title = soup.title.string.replace(" - Wikipedia", "")
                 hits += [
                     {
-                        "title": hit,
+                        "title": page_title.strip(),
                         "link": f"http://en.wikipedia.org/?curid={sorted_ranked_docids[i]}",
                         "description": "",
                     }
