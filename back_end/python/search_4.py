@@ -11,6 +11,7 @@ from python.index_wiki_dump import remove_stop_words, stem, tokenise
 from bs4 import BeautifulSoup
 import urllib
 
+
 PATH_TO_IDX = sys.argv[1] if Path(sys.argv[1]).is_dir() else "./back_end/python/idx"
 WORD_LIST = []
 TITLE_LIST = []
