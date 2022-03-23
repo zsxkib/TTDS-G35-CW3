@@ -32,7 +32,7 @@ function UsingFetch() {
             event.preventDefault();
             query = document.getElementById("search-bar2").value;
         }
-        fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query)
+        fetch("http://192.168.0.25:8000/search/?query=$".replace("$", query.trim())
             + "&hitcount=$".replace("$", hitCounts)
             + "&choice=$".replace("$", choice))
             .then(response => {
@@ -43,7 +43,7 @@ function UsingFetch() {
             })
 
         setAIAns("")
-        fetch("http://127.0.0.1:8000/search/?query=$".replace("$", query)
+        fetch("http://192.168.0.25:8000/search/?query=$".replace("$", query.trim())
             + "&hitcount=$".replace("$", hitCounts)
             + "&choice=$".replace("$", choice)
             + "&question=T" // USE AI
@@ -93,15 +93,15 @@ function UsingFetch() {
                 <FormControl style={{ m: 1, width: "250px" }}>
                     <InputLabel>Index Choice</InputLabel>
                     <NativeSelect
-                        defaultValue={"vector"}
+                        defaultValue={"ranked"}
                         value={choice}
                         onChange={handleChoice}
                     >
                         <option value={"ranked"}>Ranked IR</option>
+                        <option value={"vector"}>Vector Search</option>
                         {/* <option value={"rankedbeta"}>BETA Ranked IR</option>
                         <option value={"boolean"}>Boolean Search</option>
                         <option value={"question"}>AI Question Answering</option> */}
-                        <option value={"vector"}>ML Vector Search</option>
                     </NativeSelect>
                 </FormControl>
                 <FormControl style={{ m: 1, width: "100px" }}>
@@ -122,6 +122,7 @@ function UsingFetch() {
                 Note: "t:title" searches for pages with "title" in the title and "b:body" searches for pages with "body" in the body
             </p> */}
             {/* <hr className="dashed" /> */}
+            <Box paddingTop="2%"></Box>
             <div className='all-results'>
                 {hits.length > 1 && (
                     <div>
