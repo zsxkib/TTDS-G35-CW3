@@ -45,7 +45,7 @@ Once preprocessing is complete, individual index files are created with tokens a
 
 Due to the limiations of github, we can not upload the whole ranked IR index or our vector index, instead we index a small subset of the data and include it in this repo. Thi means that you will be able to clone and run locally!
 
-## Installing depencandies
+## Installing dependancies
 
 ```
 $ conda env create --file=req_conda.ym --name ttds
